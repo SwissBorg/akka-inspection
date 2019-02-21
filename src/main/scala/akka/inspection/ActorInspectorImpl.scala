@@ -1,18 +1,15 @@
 package akka.inspection
-import akka.actor.Scheduler
-import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.{ActorRef, ActorSystem}
+import akka.actor.{ActorRef, ActorSystem, Scheduler}
 import akka.inspection.ActorInspectorImpl.Group
-import akka.inspection.typed.ActorInspectorManager.{QueryableActorsResponse, _}
+import akka.inspection.ActorInspectorManager._
+import akka.pattern.ask
 import akka.util.Timeout
 import akka.{actor => untyped}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class ActorInspectorImpl(system: ActorSystem[_], actorInspectorManager: ActorRef[Events])
-    extends untyped.Extension
-    with akka.inspection.grpc.ActorInspectionService {
+class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef) extends untyped.Extension with akka.inspection.grpc.ActorInspectionService {
   def put(ref: untyped.ActorRef, keys: Set[String], group: Group): Unit = group match {
     case Group.Name(n) => actorInspectorManager ! Put(ref, keys, n)
     case Group.None    => actorInspectorManager ! PutWithoutGroup(ref, keys)
@@ -27,7 +24,7 @@ class ActorInspectorImpl(system: ActorSystem[_], actorInspectorManager: ActorRef
     implicit val timer: Timeout       = 10 seconds // TODO BEEEHHHH
     implicit val scheduler: Scheduler = system.scheduler
 
-    val f: Future[QueryableActorsResponse] = actorInspectorManager ? (replyTo => QueryableActorsRequest(replyTo))
+    val f: Future[QueryableActorsResponse] = (actorInspectorManager ? QueryableActorsRequest).mapTo[QueryableActorsResponse]
     f.map(r => grpc.QueryableActorsResponse(r.queryable))
   }
 
@@ -38,7 +35,7 @@ class ActorInspectorImpl(system: ActorSystem[_], actorInspectorManager: ActorRef
     implicit val timer: Timeout       = 10 seconds // TODO BEEEHHHH
     implicit val scheduler: Scheduler = system.scheduler
 
-    val f: Future[ActorGroupResponse] = actorInspectorManager ? (replyTo => ActorGroupRequest(in.actor, replyTo))
+    val f: Future[ActorGroupResponse] = (actorInspectorManager ? ActorGroupRequest(in.actor)).mapTo[ActorGroupResponse]
     f.map {
       case ActorGroupResponse(Right(group))        => grpc.ActorGroupResponse(grpc.ActorGroupResponse.Group.GroupSome(group.name))
       case ActorGroupResponse(Left(GroupNotFound)) => grpc.ActorGroupResponse(grpc.ActorGroupResponse.Group.GroupNone(true))

@@ -1,22 +1,23 @@
 package akka.inspection
 
-import akka.actor.typed.javadsl.Behaviors
-import akka.actor.typed.{ActorRef, ActorSystem, SupervisorStrategy}
-import akka.cluster.typed.{ClusterSingleton, SingletonActor}
-import akka.inspection.typed.ActorInspectorManager
-import akka.inspection.typed.ActorInspectorManager.Events
-import akka.{actor => untyped}
+import akka.actor.{ActorRef, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider, PoisonPill, Props}
+import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
 
-object ActorInspector extends untyped.ExtensionId[ActorInspectorImpl] with untyped.ExtensionIdProvider {
-  override def createExtension(system: untyped.ExtendedActorSystem): ActorInspectorImpl = {
-    val typedSystem: ActorSystem[Nothing] = ActorSystem.wrap(system)
+object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdProvider {
+  override def createExtension(system: ExtendedActorSystem): ActorInspectorImpl = {
+    // Start the singleton manager
+    system.actorOf(
+      ClusterSingletonManager.props(singletonProps = Props(classOf[ActorInspectorManager]),
+                                    terminationMessage = PoisonPill,
+                                    settings = ClusterSingletonManagerSettings(system)),
+      name = "ActorInspectorManager"
+    )
 
-    val singletonManager = ClusterSingleton(typedSystem)
-    val proxy: ActorRef[Events] = singletonManager.init(
-      SingletonActor[Events](Behaviors.supervise(ActorInspectorManager.Events.init).onFailure(SupervisorStrategy.restart), "ActorInspectorManager"))
+    val proxy: ActorRef =
+      system.actorOf(ClusterSingletonProxy.props(singletonManagerPath = "/user/ActorInspectorManager", settings = ClusterSingletonProxySettings(system)))
 
-    new ActorInspectorImpl(typedSystem, proxy)
+    new ActorInspectorImpl(system, proxy)
   }
 
-  override def lookup(): untyped.ExtensionId[_ <: untyped.Extension] = ActorInspector
+  override def lookup(): ExtensionId[_ <: Extension] = ActorInspector
 }

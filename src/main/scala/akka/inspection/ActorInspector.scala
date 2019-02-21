@@ -4,7 +4,7 @@ import akka.actor.typed.javadsl.Behaviors
 import akka.actor.typed.{ActorRef, ActorSystem, SupervisorStrategy}
 import akka.cluster.typed.{ClusterSingleton, SingletonActor}
 import akka.inspection.typed.ActorInspectorManager
-import akka.inspection.typed.ActorInspectorManager.{State, Events}
+import akka.inspection.typed.ActorInspectorManager.Events
 import akka.{actor => untyped}
 
 object ActorInspector extends untyped.ExtensionId[ActorInspectorImpl] with untyped.ExtensionIdProvider {
@@ -13,8 +13,7 @@ object ActorInspector extends untyped.ExtensionId[ActorInspectorImpl] with untyp
 
     val singletonManager = ClusterSingleton(typedSystem)
     val proxy: ActorRef[Events] = singletonManager.init(
-      SingletonActor[Events](Behaviors.supervise(ActorInspectorManager.initBehavior).onFailure(SupervisorStrategy.restart),
-                                          "ActorInspectorManager"))
+      SingletonActor[Events](Behaviors.supervise(ActorInspectorManager.initBehavior).onFailure(SupervisorStrategy.restart), "ActorInspectorManager"))
 
     new ActorInspectorImpl(proxy)
   }

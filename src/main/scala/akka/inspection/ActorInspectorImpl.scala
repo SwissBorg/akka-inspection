@@ -1,7 +1,7 @@
 package akka.inspection
 import akka.actor.typed.ActorRef
 import akka.inspection.ActorInspectorImpl.Group
-import akka.inspection.typed.ActorInspectorManager.{Events, Put, PutWithoutGroup, Release}
+import akka.inspection.typed.ActorInspectorManager._
 import akka.{actor => untyped}
 
 class ActorInspectorImpl(actorInspectorManager: ActorRef[Events]) extends untyped.Extension {

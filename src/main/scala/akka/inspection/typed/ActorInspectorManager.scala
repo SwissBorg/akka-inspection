@@ -1,12 +1,13 @@
 package akka.inspection.typed
 
-import akka.NotUsed
 import akka.actor.ActorPath
-import akka.{actor => untyped}
-import akka.actor.typed.Behavior
-import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, Behavior}
+import akka.inspection.ActorInspectorImpl.Group
 import akka.stream.scaladsl.Sink
+import akka.{NotUsed, actor => untyped}
+
+import scala.util.Try
 
 object ActorInspectorManager {
   private case class State(actors: Map[ActorPath, untyped.ActorRef],
@@ -17,12 +18,6 @@ object ActorInspectorManager {
   private object State {
     val empty: State = State(actors = Map.empty, keys = Map.empty, groups = Map.empty, streams = Map.empty)
   }
-
-//  trait BehaviorTransition[S, T] {
-//    def run(s: S): Behavior[T]
-//  }
-//
-//  case class Fix[F[_]](unfix: F[Fix[F]])
 
   sealed abstract class Events extends Product with Serializable {
     def run(s: State): Behavior[Events]
@@ -68,21 +63,22 @@ object ActorInspectorManager {
   // TODO PUT WHERE IT BELONGS
   final case class QueryableActorsResponse(queryable: List[String])
 
-  final case class ActorGroupRequest(path: ActorPath, replyTo: ActorRef[ActorGroupResponse]) extends Events {
+  final case class ActorGroupRequest(path: String, replyTo: ActorRef[ActorGroupResponse]) extends Events {
     override def run(s: State): Behavior[Events] = {
       val maybeGroup = for {
-        ref        <- s.actors.get(path)
-        (group, _) <- s.groups.find(_._2.contains(ref))
-      } yield group
+        path  <- Try(ActorPath.fromString(path)).toEither.left.map(t => Bla(t.getMessage)).right
+        ref   <- s.actors.get(path).toRight(ActorNotFound)
+        group <- s.groups.find(_._2.contains(ref)).map(_._1).toRight(GroupNotFound)
+      } yield Group.Name(group)
 
-      replyTo ! ActorGroupResponse(maybeGroup.getOrElse("ERROR NO GROUP")) // TODO handle this better
+      replyTo ! ActorGroupResponse(maybeGroup) // TODO handle this better
 
       Behavior.same
     }
   }
 
   // TODO PUT WHERE IT BELONGS
-  final case class ActorGroupResponse(group: String)
+  final case class ActorGroupResponse(group: Either[Error, Group.Name])
 
   final case class GroupRequest(group: String, replyTo: ActorRef[GroupResponse]) extends Events {
     override def run(s: State): Behavior[Events] = {
@@ -96,4 +92,9 @@ object ActorInspectorManager {
   private def mainBehavior(s: State): Behavior[Events] = Behaviors.receiveMessage(_.run(s))
 
   val initBehavior: Behavior[Events] = Behavior.validateAsInitial(mainBehavior(State.empty)) // TODO needed?
+
+  sealed abstract class Error       extends Product with Serializable
+  final case object ActorNotFound   extends Error
+  final case object GroupNotFound   extends Error
+  final case class Bla(msg: String) extends Error
 }

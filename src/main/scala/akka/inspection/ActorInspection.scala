@@ -1,6 +1,6 @@
 package akka.inspection
 
-import akka.actor.{Actor, ActorContext, ActorPath, ActorRef}
+import akka.actor.{Actor, ActorRef}
 import akka.inspection.ActorInspection._
 import akka.inspection.ActorInspectorImpl.Group
 import akka.pattern.pipe

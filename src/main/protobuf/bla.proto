@@ -7,15 +7,26 @@ option java_outer_classname = "ActorInspectionProto";
 package actorinspection;
 
 service ActorInspectionService {
-    rpc RequestQueryable (QueryableRequest) returns (QueryableResponse) {}
+    rpc RequestQueryableActors (QueryableActorsRequest) returns (QueryableActorsResponse) {}
+    rpc RequestActorGroup (ActorGroupRequest) returns (ActorGroupResponse) {}
 }
 
-message QueryableRequest {
+message QueryableActorsRequest {
     string id = 1;
 }
-message QueryableResponse {
+message QueryableActorsResponse {
     repeated string queryable = 1;
 }
 
 
-
+message ActorGroupRequest {
+    string id = 1;
+    string actor = 2;
+}
+message ActorGroupResponse {
+    oneof group {
+        bool group_none = 1;
+        string group_some = 2;
+        string group_error = 3;
+    }
+}

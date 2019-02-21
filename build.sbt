@@ -16,3 +16,5 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-stream"        % akkaVersion,
   "com.typesafe.akka" %% "akka-testkit"       % akkaVersion,
 )
+
+enablePlugins(AkkaGrpcPlugin)

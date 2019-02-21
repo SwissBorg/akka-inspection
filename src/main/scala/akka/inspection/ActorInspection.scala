@@ -2,14 +2,13 @@ package akka.inspection
 
 import akka.actor.{Actor, ActorContext, ActorPath, ActorRef}
 import akka.inspection.ActorInspection._
+import akka.inspection.ActorInspectorImpl.Group
 import akka.pattern.pipe
 
 import scala.concurrent.{ExecutionContext, Future}
 
 trait ActorInspection { _: Actor =>
-  type Group = ActorInspectorImpl.Group
-
-  def group: Group
+  def group: Group = Group.None
   def keys: Set[String]
   def query(key: String): QueryResult
   def queryAll: QueryResult
@@ -84,22 +83,5 @@ private[inspection] trait QueryMessages {
 
 trait ChildrenMessages {
   final case object ChildrenRequest
-//  {
-//    implicit def childrenRequestHandle(implicit context: ActorContext): Handle[ChildrenRequest.type] =
-//      new Handle[ChildrenRequest.type] {
-//        override type R = ChildrenResult
-//        override def handle(t: ChildrenRequest.type): R = ChildrenResult(context.children.toList)
-//      }
-//  }
-
   final case class ChildrenResult(children: List[ActorRef])
-}
-
-trait Handle[T] {
-  type R
-  def handle(t: T): R
-}
-
-object Handle {
-  def apply[T](implicit ev: Handle[T]): Handle[T] = ev
 }

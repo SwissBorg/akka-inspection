@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "akka.inspection.grpc";
+option java_outer_classname = "ActorInspectionProto";
+
+package actorinspection;
+
+service ActorInspectionService {
+    rpc RequestQueryable (QueryableRequest) returns (QueryableResponse) {}
+}
+
+message QueryableRequest {
+    string id = 1;
+}
+message QueryableResponse {
+    repeated string queryable = 1;
+}
+
+
+

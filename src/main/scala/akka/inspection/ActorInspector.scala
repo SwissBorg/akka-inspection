@@ -1,9 +1,10 @@
 package akka.inspection
+
 import akka.actor.typed.javadsl.Behaviors
 import akka.actor.typed.{ActorRef, ActorSystem, SupervisorStrategy}
 import akka.cluster.typed.{ClusterSingleton, SingletonActor}
 import akka.inspection.typed.ActorInspectorManager
-import akka.inspection.typed.ActorInspectorManager.{State, SubscriptionCommand}
+import akka.inspection.typed.ActorInspectorManager.{State, Events}
 import akka.{actor => untyped}
 
 object ActorInspector extends untyped.ExtensionId[ActorInspectorImpl] with untyped.ExtensionIdProvider {
@@ -11,8 +12,8 @@ object ActorInspector extends untyped.ExtensionId[ActorInspectorImpl] with untyp
     val typedSystem: ActorSystem[Nothing] = ActorSystem.wrap(system)
 
     val singletonManager = ClusterSingleton(typedSystem)
-    val proxy: ActorRef[SubscriptionCommand] = singletonManager.init(
-      SingletonActor[SubscriptionCommand](Behaviors.supervise(ActorInspectorManager.mainBehavior(State.empty)).onFailure(SupervisorStrategy.restart),
+    val proxy: ActorRef[Events] = singletonManager.init(
+      SingletonActor[Events](Behaviors.supervise(ActorInspectorManager.initBehavior).onFailure(SupervisorStrategy.restart),
                                           "ActorInspectorManager"))
 
     new ActorInspectorImpl(proxy)

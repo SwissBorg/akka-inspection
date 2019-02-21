@@ -1,10 +1,10 @@
 package akka.inspection
 import akka.actor.typed.ActorRef
 import akka.inspection.ActorInspectorImpl.Group
-import akka.inspection.typed.ActorInspectorManager.{Put, PutWithoutGroup, Release, SubscriptionCommand}
+import akka.inspection.typed.ActorInspectorManager.{Events, Put, PutWithoutGroup, Release}
 import akka.{actor => untyped}
 
-class ActorInspectorImpl(actorInspectorManager: ActorRef[SubscriptionCommand]) extends untyped.Extension {
+class ActorInspectorImpl(actorInspectorManager: ActorRef[Events]) extends untyped.Extension {
   def put(ref: untyped.ActorRef, keys: Set[String], group: Group): Unit = group match {
     case Group.Name(n) => actorInspectorManager ! Put(ref, keys, n)
     case Group.None    => actorInspectorManager ! PutWithoutGroup(ref, keys)

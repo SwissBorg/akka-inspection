@@ -17,4 +17,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-testkit"       % akkaVersion,
 )
 
+// GRPC
 enablePlugins(AkkaGrpcPlugin)
+enablePlugins(JavaAgent)
+javaAgents += "org.mortbay.jetty.alpn" % "jetty-alpn-agent" % "2.0.9" % "runtime;test"

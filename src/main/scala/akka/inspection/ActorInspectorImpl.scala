@@ -1,10 +1,12 @@
 package akka.inspection
-import akka.actor.{ActorRef, Extension}
+import akka.actor.typed.ActorRef
 import akka.inspection.ActorInspectorImpl.Group
+import akka.inspection.typed.ActorInspectorManager.{Put, Release, SubscriptionCommand}
+import akka.{actor => untyped}
 
-class ActorInspectorImpl extends Extension {
-  def put(ref: ActorRef, keys: Set[String], group: Group): Unit = ???
-  def release(ref: ActorRef): Unit                              = ???
+class ActorInspectorImpl(actorInspectorManager: ActorRef[SubscriptionCommand]) extends untyped.Extension {
+  def put(ref: untyped.ActorRef, keys: Set[String], group: Group): Unit = actorInspectorManager ! Put(ref, keys, "")
+  def release(ref: untyped.ActorRef): Unit                              = actorInspectorManager ! Release(ref)
 }
 
 object ActorInspectorImpl {

@@ -1,15 +1,18 @@
 package akka.inspection
 import akka.actor.Scheduler
-import akka.actor.typed.ActorRef
-import akka.inspection.ActorInspectorImpl.Group
-import akka.inspection.typed.ActorInspectorManager._
-import akka.{actor => untyped}
 import akka.actor.typed.scaladsl.AskPattern._
+import akka.actor.typed.{ActorRef, ActorSystem}
+import akka.inspection.ActorInspectorImpl.Group
+import akka.inspection.typed.ActorInspectorManager.{QueryableActorsResponse, _}
 import akka.util.Timeout
+import akka.{actor => untyped}
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
 
-class ActorInspectorImpl(actorInspectorManager: ActorRef[Events]) extends untyped.Extension with akka.inspection.grpc.ActorInspectionService {
+class ActorInspectorImpl(system: ActorSystem[_], actorInspectorManager: ActorRef[Events])
+    extends untyped.Extension
+    with akka.inspection.grpc.ActorInspectionService {
   def put(ref: untyped.ActorRef, keys: Set[String], group: Group): Unit = group match {
     case Group.Name(n) => actorInspectorManager ! Put(ref, keys, n)
     case Group.None    => actorInspectorManager ! PutWithoutGroup(ref, keys)
@@ -21,8 +24,8 @@ class ActorInspectorImpl(actorInspectorManager: ActorRef[Events]) extends untype
   override def requestQueryableActors(in: grpc.QueryableActorsRequest): Future[grpc.QueryableActorsResponse] = {
     import scala.concurrent.ExecutionContext.Implicits.global // TODO
 
-    implicit val timer: Timeout       = ???
-    implicit val scheduler: Scheduler = ???
+    implicit val timer: Timeout       = 10 seconds // TODO BEEEHHHH
+    implicit val scheduler: Scheduler = system.scheduler
 
     val f: Future[QueryableActorsResponse] = actorInspectorManager ? (replyTo => QueryableActorsRequest(replyTo))
     f.map(r => grpc.QueryableActorsResponse(r.queryable))
@@ -32,8 +35,8 @@ class ActorInspectorImpl(actorInspectorManager: ActorRef[Events]) extends untype
   override def requestActorGroup(in: grpc.ActorGroupRequest): Future[grpc.ActorGroupResponse] = {
     import scala.concurrent.ExecutionContext.Implicits.global // TODO
 
-    implicit val timer: Timeout       = ???
-    implicit val scheduler: Scheduler = ???
+    implicit val timer: Timeout       = 10 seconds // TODO BEEEHHHH
+    implicit val scheduler: Scheduler = system.scheduler
 
     val f: Future[ActorGroupResponse] = actorInspectorManager ? (replyTo => ActorGroupRequest(in.actor, replyTo))
     f.map {

@@ -13,9 +13,9 @@ object ActorInspector extends untyped.ExtensionId[ActorInspectorImpl] with untyp
 
     val singletonManager = ClusterSingleton(typedSystem)
     val proxy: ActorRef[Events] = singletonManager.init(
-      SingletonActor[Events](Behaviors.supervise(ActorInspectorManager.initBehavior).onFailure(SupervisorStrategy.restart), "ActorInspectorManager"))
+      SingletonActor[Events](Behaviors.supervise(ActorInspectorManager.Events.init).onFailure(SupervisorStrategy.restart), "ActorInspectorManager"))
 
-    new ActorInspectorImpl(proxy)
+    new ActorInspectorImpl(typedSystem, proxy)
   }
 
   override def lookup(): untyped.ExtensionId[_ <: untyped.Extension] = ActorInspector

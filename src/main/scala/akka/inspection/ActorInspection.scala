@@ -2,20 +2,22 @@ package akka.inspection
 
 import akka.actor.{Actor, ActorRef}
 import akka.inspection.ActorInspection._
-import akka.inspection.ActorInspectorImpl.Group
 import akka.pattern.pipe
 
 import scala.concurrent.{ExecutionContext, Future}
 
 trait ActorInspection { _: Actor =>
-  def group: Group = Group.None
-  def keys: Set[String]
+  type Group = akka.inspection.ActorInspectorManager.Groups.Group
+  type Key   = akka.inspection.ActorInspectorManager.Keys.Key
+
+  def keys: Set[Key]
   def query(key: String): QueryResult
   def queryAll: QueryResult
+  def groups: Set[Group] = Set.empty
 
   private val akkaInspector = ActorInspector(context.system)
 
-  override def aroundPreStart(): Unit = akkaInspector.put(self, keys, group)
+  override def aroundPreStart(): Unit = akkaInspector.put(self, keys, groups)
   override def aroundPostStop(): Unit = akkaInspector.release(self)
 
   /**
@@ -79,6 +81,11 @@ private[inspection] trait QueryMessages {
     final case class Success(res: String)                  extends QueryResult
     final case class Failure(key: String, message: String) extends QueryResult
   }
+
+  sealed abstract class BackPressureEvent extends Product with Serializable
+  final case object Init                  extends BackPressureEvent
+  final case object Ack                   extends BackPressureEvent
+  final case object Complete              extends BackPressureEvent
 }
 
 trait ChildrenMessages {

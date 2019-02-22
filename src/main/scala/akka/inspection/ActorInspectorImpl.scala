@@ -1,6 +1,7 @@
 package akka.inspection
 import akka.actor.{ActorRef, ActorSystem, Scheduler}
-import akka.inspection.ActorInspectorImpl.Group
+import akka.inspection.ActorInspectorManager.Groups.Group
+import akka.inspection.ActorInspectorManager.Keys.Key
 import akka.inspection.ActorInspectorManager._
 import akka.pattern.ask
 import akka.util.Timeout
@@ -9,13 +10,9 @@ import akka.{actor => untyped}
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef) extends untyped.Extension with akka.inspection.grpc.ActorInspectionService {
-  def put(ref: untyped.ActorRef, keys: Set[String], group: Group): Unit = group match {
-    case Group.Name(n) => actorInspectorManager ! Put(ref, keys, n)
-    case Group.None    => actorInspectorManager ! PutWithoutGroup(ref, keys)
-  }
-
-  def release(ref: untyped.ActorRef): Unit = actorInspectorManager ! Release(ref)
+class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef) extends untyped.Extension with grpc.ActorInspectionService {
+  def put(ref: untyped.ActorRef, keys: Set[Key], groups: Set[Group]): Unit = actorInspectorManager ! Put(ref, keys, groups)
+  def release(ref: untyped.ActorRef): Unit                                 = actorInspectorManager ! Release(ref)
 
   // TODO should not be here. Should not be called from within an actor.
   override def requestQueryableActors(in: grpc.QueryableActorsRequest): Future[grpc.QueryableActorsResponse] = {
@@ -25,29 +22,38 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef) e
     implicit val scheduler: Scheduler = system.scheduler
 
     val f: Future[QueryableActorsResponse] = (actorInspectorManager ? QueryableActorsRequest).mapTo[QueryableActorsResponse]
-    f.map(r => grpc.QueryableActorsResponse(r.queryable))
+    f.map(r => grpc.QueryableActorsResponse(r.queryable.toSeq))
   }
 
   // TODO should not be here. Should not be called from within an actor.
-  override def requestActorGroup(in: grpc.ActorGroupRequest): Future[grpc.ActorGroupResponse] = {
+  override def requestActorGroups(in: grpc.ActorGroupsRequest): Future[grpc.ActorGroupsResponse] = {
     import scala.concurrent.ExecutionContext.Implicits.global // TODO
 
     implicit val timer: Timeout       = 10 seconds // TODO BEEEHHHH
     implicit val scheduler: Scheduler = system.scheduler
 
-    val f: Future[ActorGroupResponse] = (actorInspectorManager ? ActorGroupRequest(in.actor)).mapTo[ActorGroupResponse]
+    val f: Future[ActorGroupsResponse] = (actorInspectorManager ? ActorGroupsRequest(in.actor)).mapTo[ActorGroupsResponse]
     f.map {
-      case ActorGroupResponse(Right(group))        => grpc.ActorGroupResponse(grpc.ActorGroupResponse.Group.GroupSome(group.name))
-      case ActorGroupResponse(Left(GroupNotFound)) => grpc.ActorGroupResponse(grpc.ActorGroupResponse.Group.GroupNone(true))
-      case ActorGroupResponse(Left(err))           => grpc.ActorGroupResponse(grpc.ActorGroupResponse.Group.GroupError(err.toString)) // TODO NOT USE TO STRING...
+      case ActorGroupsResponse(Right(groups)) =>
+        grpc.ActorGroupsResponse(grpc.ActorGroupsResponse.GroupsRes.Success(grpc.ActorGroupsResponse.Groups(groups.toSeq.map(_.name))))
+      case ActorGroupsResponse(Left(ActorNotInspectable)) =>
+        grpc.ActorGroupsResponse(grpc.ActorGroupsResponse.GroupsRes.Failure(ActorNotInspectable.toString)) // TODO BEEEHHHhhh
+
     }
   }
-}
 
-object ActorInspectorImpl {
-  sealed abstract class Group extends Product with Serializable
-  object Group {
-    final case class Name(name: String) extends Group
-    final case object None              extends Group
+  override def requestActorKeys(in: grpc.ActorKeysRequest): Future[grpc.ActorKeysResponse] = {
+    import scala.concurrent.ExecutionContext.Implicits.global // TODO
+
+    implicit val timer: Timeout       = 10 seconds // TODO BEEEHHHH
+    implicit val scheduler: Scheduler = system.scheduler
+
+    val f: Future[ActorKeysResponse] = (actorInspectorManager ? ActorGroupsRequest(in.actor)).mapTo[ActorKeysResponse]
+    f.map {
+      case ActorKeysResponse(Right(keys)) =>
+        grpc.ActorKeysResponse(grpc.ActorKeysResponse.KeysRes.Success(grpc.ActorKeysResponse.Keys(keys.toSeq.map(_.value))))
+      case ActorKeysResponse(Left(ActorNotInspectable)) =>
+        grpc.ActorKeysResponse(grpc.ActorKeysResponse.KeysRes.Failure(ActorNotInspectable.toString)) // TODO BEEEHHHhhh
+    }
   }
 }

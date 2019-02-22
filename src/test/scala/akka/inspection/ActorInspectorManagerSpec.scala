@@ -125,14 +125,14 @@ object ActorInspectorManagerSpec {
     override def receive: Receive = { case a => println(a) }
   }
 
-  class TestActor extends Actor with ActorInspection[Unit] {
+  class TestActor extends Actor with MutableActorInspection {
     var i: Int = 0
 
-    override def receive: Receive = inspectableReceive(()) {
+    override def receive: Receive = inspectableReceive {
       case _ => i += 1
     }
 
-    override def responses(s: Unit): Map[Key, QueryResponse] = Map {
+    override def responses: Map[Key, QueryResponse] = Map {
       Key("yes") -> QueryResponse.later(i)
     }
   }
@@ -141,13 +141,13 @@ object ActorInspectorManagerSpec {
     override def receive: Receive = mainReceive(StatelessActor.State(0))
 
     def mainReceive(s: StatelessActor.State): Receive = inspectableReceive(s) {
-      case _ =>
-        context.become(mainReceive(s.copy(i = s.i + 1)))
+      case _ => context.become(mainReceive(s.copy(i = s.i + 1)))
     }
 
     override def responses(s: StatelessActor.State): Map[Key, QueryResponse] = Map {
       Key("yes") -> QueryResponse.now(s.i)
     }
+    override implicit def showS: Show[StatelessActor.State] = (t: StatelessActor.State) => t.toString
   }
 
   object StatelessActor {

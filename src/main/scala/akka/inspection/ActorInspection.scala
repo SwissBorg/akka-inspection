@@ -9,37 +9,42 @@ import cats.Show
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait ActorInspection[S] extends Actor { _: Actor =>
+trait ActorInspection[S] { _: Actor =>
   type Group         = akka.inspection.ActorInspectorManager.Groups.Group
   type Key           = akka.inspection.ActorInspectorManager.Keys.Key
   type QueryResponse = akka.inspection.ActorInspection.QueryResponse
   val QueryResponse: inspection.ActorInspection.QueryResponse.type = akka.inspection.ActorInspection.QueryResponse
 
+  implicit def showS: Show[S]
+
   def responses(s: S): Map[Key, QueryResponse]
   def groups: Set[Group] = Set.empty
+  def fallBack(k: Key): QueryResponse =
+    QueryResponse.error(k, s"No 'QueryResponse' defined for the key '${k.value}'.")
 
-  def inspectableReceive(s: S)(r: Receive): Receive =
-    inspectionReceive(s) orElse r
+  private def allResponse(s: S): Map[Key, QueryResponse] = responses(s) + (Key("all") -> QueryResponse.now(s))
 
-  private def inspectionReceive(s: S): Receive = {
+  def inspectableReceive(s: S)(r: Receive): Receive = inspectionReceive(s) orElse r
+
+  protected def inspectionReceive(s: S): Receive = {
     case r: QueryRequest => handleQuery(s, r)(context.system.getDispatcher)
   }
 
-  private def query(s: S, k: Key): QueryResponse =
-    responses(s).getOrElse(k, QueryResponse.error(k, s"No 'QueryResponse' defined for the key ${k.value}.")) match {
-      case QueryResponse.LazySuccess(m) => val a = m(); a
-      case r                            => println(r); r
+  protected def query(s: S, k: Key): QueryResponse =
+    allResponse(s).getOrElse(k, fallBack(k)) match {
+      case QueryResponse.LazySuccess(m) => m()
+      case r                            => r
     }
 
-  private def queryAll: QueryResponse = ???
+  private def queryAll(s: S): QueryResponse = ???
 
-  private def handleQuery(s: S, q: QueryRequest)(runOn: ExecutionContext): Unit = {
+  protected def handleQuery(s: S, q: QueryRequest)(runOn: ExecutionContext): Unit = {
     implicit val ec: ExecutionContext = runOn
 
     q match {
       case QueryRequest.One(k) =>
         Future(query(s, k)).pipeTo(sender())
-      case QueryRequest.All => Future(queryAll).pipeTo(sender())
+      case QueryRequest.All => Future(queryAll(s)).pipeTo(sender())
     }
   }
 }

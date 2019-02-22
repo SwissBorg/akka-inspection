@@ -91,15 +91,26 @@ class ActorInspectorManagerSpec
       expectMsg(ActorKeysResponse(Left(ActorNotInspectable)))
     }
 
-    "bla" in {
-      val testRef = system.actorOf(Props[TestActor])
-
-      testRef ! QueryRequest.One(Key("yes"))
-      Thread.sleep(1000)
-      testRef ! QueryRequest.One(Key("yes"))
-//      expectMsg(QueryResponse.Success("0"))
+//    "bla" in {
+//      val testRef = system.actorOf(Props[TestActor])
+//
 //      testRef ! QueryRequest.One(Key("yes"))
-//      expectMsg(QueryResponse.Success("1"))
+//      Thread.sleep(1000)
+//      testRef ! QueryRequest.One(Key("yes"))
+////      expectMsg(QueryResponse.Success("0"))
+////      testRef ! QueryRequest.One(Key("yes"))
+////      expectMsg(QueryResponse.Success("1"))
+//    }
+
+    "foo" in {
+      case class Bla()
+
+      val testRef = system.actorOf(Props[StatelessActor])
+      testRef ! QueryRequest.One(Key("yes"))
+      expectMsg(QueryResponse.Success("0"))
+      testRef ! Bla()
+      testRef ! QueryRequest.One(Key("yes"))
+      expectMsg(QueryResponse.Success("1"))
     }
   }
 
@@ -108,19 +119,38 @@ class ActorInspectorManagerSpec
 }
 
 object ActorInspectorManagerSpec {
+  implicit val intShow: Show[Int] = (t: Int) => t.toString
+
   class NopActor extends Actor {
     override def receive: Receive = { case a => println(a) }
   }
 
-  class TestActor extends Actor with ActorInspection {
+  class TestActor extends Actor with ActorInspection[Unit] {
     var i: Int = 0
 
-    implicit val intShow: Show[Int] = (t: Int) => t.toString
-    implicit val asdf: Show[Long]   = (t: Long) => t.toString
+    override def receive: Receive = inspectableReceive(()) {
+      case _ => i += 1
+    }
 
-    override def receive: Receive = { case _ => i += 1 }
-    override def responses: Map[Key, QueryResponse] = Map {
+    override def responses(s: Unit): Map[Key, QueryResponse] = Map {
       Key("yes") -> QueryResponse.later(i)
     }
+  }
+
+  class StatelessActor extends Actor with ActorInspection[StatelessActor.State] {
+    override def receive: Receive = mainReceive(StatelessActor.State(0))
+
+    def mainReceive(s: StatelessActor.State): Receive = inspectableReceive(s) {
+      case _ =>
+        context.become(mainReceive(s.copy(i = s.i + 1)))
+    }
+
+    override def responses(s: StatelessActor.State): Map[Key, QueryResponse] = Map {
+      Key("yes") -> QueryResponse.now(s.i)
+    }
+  }
+
+  object StatelessActor {
+    case class State(i: Int)
   }
 }

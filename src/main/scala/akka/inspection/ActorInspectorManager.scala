@@ -1,13 +1,13 @@
 package akka.inspection
 
 import akka.NotUsed
-import akka.actor.{Actor, ActorPath, ActorRef}
+import akka.actor.{Actor, ActorRef}
+import akka.inspection.ActorInspection._
 import akka.inspection.ActorInspectorManager.Groups.Group
+import akka.inspection.ActorInspectorManager.InspectableActors.InspectableActorRef
 import akka.inspection.ActorInspectorManager.Keys.Key
 import akka.inspection.util.ActorRefUtil._
 import akka.stream.scaladsl.Sink
-import akka.inspection.ActorInspection._
-import akka.inspection.ActorInspectorManager.InspectableActors.InspectableActorRef
 
 class ActorInspectorManager extends Actor {
   import ActorInspectorManager._
@@ -34,8 +34,6 @@ class ActorInspectorManager extends Actor {
         sender() ! GroupResponse(groups.inGroup(group))
     }
   }
-
-  def changeState(f: State => Receive)(s: State): Unit = context.become(f(s))
 }
 
 object ActorInspectorManager {

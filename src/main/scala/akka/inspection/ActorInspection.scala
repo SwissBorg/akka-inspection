@@ -1,6 +1,6 @@
 package akka.inspection
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.actor.{Actor, ActorRef}
 import akka.inspection
 import akka.inspection.ActorInspection._
 import akka.inspection.ActorInspectorManager.Keys.Key
@@ -9,57 +9,38 @@ import cats.Show
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait ActorInspection extends Actor { _: Actor =>
+trait ActorInspection[S] extends Actor { _: Actor =>
   type Group         = akka.inspection.ActorInspectorManager.Groups.Group
   type Key           = akka.inspection.ActorInspectorManager.Keys.Key
   type QueryResponse = akka.inspection.ActorInspection.QueryResponse
   val QueryResponse: inspection.ActorInspection.QueryResponse.type = akka.inspection.ActorInspection.QueryResponse
 
-  def responses: Map[Key, QueryResponse]
+  def responses(s: S): Map[Key, QueryResponse]
   def groups: Set[Group] = Set.empty
 
-//  private val akkaInspector = ActorInspector(context.system)
+  def inspectableReceive(s: S)(r: Receive): Receive =
+    inspectionReceive(s) orElse r
 
-  override protected[akka] def aroundPreStart(): Unit = () //akkaInspector.put(self, responses.keySet, groups)
-  override protected[akka] def aroundPostStop(): Unit = () //akkaInspector.release(self)
+  private def inspectionReceive(s: S): Receive = {
+    case r: QueryRequest => handleQuery(s, r)(context.system.getDispatcher)
+  }
 
-  private def query(k: Key): QueryResponse =
-    responses.getOrElse(k, QueryResponse.error(k, s"No 'QueryResponse' defined for the key ${k.value}.")) match {
+  private def query(s: S, k: Key): QueryResponse =
+    responses(s).getOrElse(k, QueryResponse.error(k, s"No 'QueryResponse' defined for the key ${k.value}.")) match {
       case QueryResponse.LazySuccess(m) => val a = m(); a
       case r                            => println(r); r
     }
 
   private def queryAll: QueryResponse = ???
 
-  /**
-    * Handles [[QueryRequest]] messages and runs the computations
-    * on the [[ExecutionContext]] `runOn`.
-    *
-    * @param runOn [[ExecutionContext]] on which to run.
-    */
-  def handleQuery(runOn: ExecutionContext)(msg: Any): Unit = {
+  private def handleQuery(s: S, q: QueryRequest)(runOn: ExecutionContext): Unit = {
     implicit val ec: ExecutionContext = runOn
 
-    msg match {
-      // Match in two steps so you get the exhaustiveness check.
-      case qr: QueryRequest =>
-        qr match {
-          case QueryRequest.One(k) =>
-            Future(query(k)).pipeTo(sender())
-          case QueryRequest.All => Future(queryAll).pipeTo(sender())
-        }
-      case _ => println("HHEEEREE")
+    q match {
+      case QueryRequest.One(k) =>
+        Future(query(s, k)).pipeTo(sender())
+      case QueryRequest.All => Future(queryAll).pipeTo(sender())
     }
-  }
-
-  def receiveChildren: Receive = {
-    case rq: ActorInspection.ChildrenRequest.type =>
-      sender ! ChildrenResult(context.children.toList)
-  }
-
-  override protected[akka] def aroundReceive(receive: Receive, msg: Any): Unit = {
-    handleQuery(context.system.dispatcher)(msg)
-    super.aroundReceive(receive, msg)
   }
 }
 
@@ -95,7 +76,7 @@ private[inspection] object ActorInspection {
     final case class LazySuccess(res: () => Success)    extends QueryResponse
     final case class Failure(key: Key, message: String) extends QueryResponse
 
-    def now[T: Show](t: T): Success               = Success(t.toString)
+    def now[T: Show](t: T): Success               = Success(Show[T].show(t))
     def later[T: Show](t: => T): LazySuccess      = LazySuccess(() => now(t))
     def custom(s: String): Success                = Success(s)
     def error(key: Key, message: String): Failure = Failure(key, message)

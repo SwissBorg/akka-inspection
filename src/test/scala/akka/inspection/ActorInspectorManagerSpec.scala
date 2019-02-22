@@ -1,12 +1,15 @@
 package akka.inspection
 
 import akka.actor.{Actor, ActorSystem, Props}
+import akka.inspection
+import akka.inspection.ActorInspection.{QueryRequest, QueryResponse}
 import akka.inspection.ActorInspectorManager.Groups.Group
 import akka.inspection.ActorInspectorManager.Keys.Key
 import akka.inspection.ActorInspectorManager._
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import akka.inspection.util.ActorRefUtil._
+import cats.Show
 
 class ActorInspectorManagerSpec
     extends TestKit(ActorSystem("ActorInspectorManagerSpec"))
@@ -87,6 +90,17 @@ class ActorInspectorManagerSpec
       inspectorRef ! ActorKeysRequest(asString(dummyRef))
       expectMsg(ActorKeysResponse(Left(ActorNotInspectable)))
     }
+
+    "bla" in {
+      val testRef = system.actorOf(Props[TestActor])
+
+      testRef ! QueryRequest.One(Key("yes"))
+      Thread.sleep(1000)
+      testRef ! QueryRequest.One(Key("yes"))
+//      expectMsg(QueryResponse.Success("0"))
+//      testRef ! QueryRequest.One(Key("yes"))
+//      expectMsg(QueryResponse.Success("1"))
+    }
   }
 
   override def afterAll: Unit =
@@ -95,6 +109,18 @@ class ActorInspectorManagerSpec
 
 object ActorInspectorManagerSpec {
   class NopActor extends Actor {
-    override def receive: Receive = { case _ => () }
+    override def receive: Receive = { case a => println(a) }
+  }
+
+  class TestActor extends Actor with ActorInspection {
+    var i: Int = 0
+
+    implicit val intShow: Show[Int] = (t: Int) => t.toString
+    implicit val asdf: Show[Long]   = (t: Long) => t.toString
+
+    override def receive: Receive = { case _ => i += 1 }
+    override def responses: Map[Key, QueryResponse] = Map {
+      Key("yes") -> QueryResponse.later(i)
+    }
   }
 }

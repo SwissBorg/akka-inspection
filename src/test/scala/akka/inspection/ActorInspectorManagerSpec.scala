@@ -52,12 +52,20 @@ class ActorInspectorManagerSpec
       expectMsg(ActorGroupsResponse(Right(helloGroups ++ worldGroups)))
     }
 
-    "send back an 'ActorNotFound' error when requesting an undeclared actor" in {
+    "fail when requesting the groups of an undeclared actor" in {
       val inspectorRef = system.actorOf(Props[ActorInspectorManager])
       val dummyRef     = system.actorOf(Props[NopActor])
 
       inspectorRef ! ActorGroupsRequest(asString(dummyRef))
       expectMsg(ActorGroupsResponse(Left(ActorNotInspectable)))
+    }
+
+    "fail when requesting the keys of an undeclared actor" in {
+      val inspectorRef = system.actorOf(Props[ActorInspectorManager])
+      val dummyRef     = system.actorOf(Props[NopActor])
+
+      inspectorRef ! ActorKeysRequest(asString(dummyRef))
+      expectMsg(ActorKeysResponse(Left(ActorNotInspectable)))
     }
 
     "fail to retrieve groups if the actor was deleted" in {
@@ -76,8 +84,8 @@ class ActorInspectorManagerSpec
 
       inspectorRef ! Put(dummyRef, Set("hello", "world").map(Key), Set.empty)
       inspectorRef ! Release(dummyRef)
-      inspectorRef ! ActorGroupsRequest(asString(dummyRef))
-      expectMsg(ActorGroupsResponse(Left(ActorNotInspectable)))
+      inspectorRef ! ActorKeysRequest(asString(dummyRef))
+      expectMsg(ActorKeysResponse(Left(ActorNotInspectable)))
     }
   }
 

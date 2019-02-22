@@ -2,7 +2,9 @@ package akka.inspection
 
 import akka.actor.{Actor, ActorRef}
 import akka.inspection.ActorInspection._
+import akka.inspection.ActorInspectorManager.Keys.Key
 import akka.pattern.pipe
+import cats.Show
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -10,15 +12,20 @@ trait ActorInspection { _: Actor =>
   type Group = akka.inspection.ActorInspectorManager.Groups.Group
   type Key   = akka.inspection.ActorInspectorManager.Keys.Key
 
-  def keys: Set[Key]
-  def query(key: String): QueryResult
-  def queryAll: QueryResult
+  def responses: Map[Key, QueryResponse]
   def groups: Set[Group] = Set.empty
 
   private val akkaInspector = ActorInspector(context.system)
 
-  override def aroundPreStart(): Unit = akkaInspector.put(self, keys, groups)
+  override def aroundPreStart(): Unit = akkaInspector.put(self, responses.keySet, groups)
   override def aroundPostStop(): Unit = akkaInspector.release(self)
+
+  private def query(k: Key): QueryResponse = responses.getOrElse(k, QueryResponse.custom("bb")) match {
+    case QueryResponse.LazySuccess(m) => QueryResponse.Success(m())
+    case r                            => r
+  }
+
+  private def queryAll: QueryResponse = ???
 
   /**
     * Handles [[QueryRequest]] messages and runs the computations
@@ -32,8 +39,8 @@ trait ActorInspection { _: Actor =>
       // Match in two steps so you get the exhaustiveness check.
       case qr: QueryRequest =>
         qr match {
-          case QueryRequest.Single(k) => Future(query(k)).pipeTo(sender())
-          case QueryRequest.All       => Future(queryAll).pipeTo(sender())
+          case QueryRequest.One(k) => Future(query(k)).pipeTo(sender())
+          case QueryRequest.All    => Future(queryAll).pipeTo(sender())
         }
     }
   }
@@ -64,7 +71,7 @@ private[inspection] trait QueryMessages {
       * Query for the actor's state subset defined by the `key`.
       * @param key the key of the state element to query.
       */
-    final case class Single(key: String) extends QueryRequest
+    final case class One(key: Key) extends QueryRequest
 
     /**
       * Query for actor's entire state.
@@ -76,10 +83,16 @@ private[inspection] trait QueryMessages {
     * Messages sent by an actor implementing [[ActorInspection]]
     * to the actor that made the related request.
     */
-  sealed abstract class QueryResult extends Product with Serializable
-  object QueryResult {
-    final case class Success(res: String)                  extends QueryResult
-    final case class Failure(key: String, message: String) extends QueryResult
+  sealed abstract class QueryResponse extends Product with Serializable
+  object QueryResponse {
+    final case class LazySuccess(res: () => String)        extends QueryResponse
+    final case class Success(res: String)                  extends QueryResponse
+    final case class Failure(key: String, message: String) extends QueryResponse
+
+    def apply[T: Show](t: T): QueryResponse                = Success(Show[T].show(t))
+    def later[T: Show](t: => T): QueryResponse             = LazySuccess(() => Show[T].show(t))
+    def custom(s: String): QueryResponse                   = Success(s)
+    def error(key: String, message: String): QueryResponse = Failure(key, message)
   }
 
   sealed abstract class BackPressureEvent extends Product with Serializable

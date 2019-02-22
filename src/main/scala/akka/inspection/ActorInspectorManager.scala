@@ -15,7 +15,7 @@ class ActorInspectorManager extends Actor {
   override def receive: Receive = mainReceive(State.empty)
 
   def mainReceive(s: State): Receive = {
-    val State(inspectableActors, keys, groups, streams) = s
+    val State(inspectableActors, keys, groups, _) = s
 
     {
       case Put(ref, keys0, groups0) => context.become(mainReceive(s.put(ref, keys0, groups0)))
@@ -80,7 +80,7 @@ object ActorInspectorManager {
   }
 
   object InspectableActors {
-    sealed abstract class InspectableActorRef(val ref: ActorRef)
+    sealed abstract case class InspectableActorRef(ref: ActorRef)
     private object InspectableActorRef {
       def apply(ref: ActorRef): InspectableActorRef = new InspectableActorRef(ref) {}
     }

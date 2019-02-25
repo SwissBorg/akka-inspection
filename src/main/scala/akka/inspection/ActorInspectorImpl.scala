@@ -1,27 +1,38 @@
 package akka.inspection
-import akka.actor.{ActorRef, ActorSystem, Scheduler}
+
+import akka.NotUsed
+import akka.actor.{ActorRef, ActorSystem, Extension, Scheduler}
+import akka.inspection.ActorInspection.{StateFragmentRequest, StateFragmentResponse}
 import akka.inspection.ActorInspectorManager.Groups.Group
-import akka.inspection.ActorInspectorManager.Keys.Key
+import akka.inspection.ActorInspectorManager.StateFragments.StateFragmentId
 import akka.inspection.ActorInspectorManager._
 import akka.pattern.ask
+import akka.stream.{Materializer, QueueOfferResult}
+import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
-import akka.{actor => untyped}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef) extends untyped.Extension with grpc.ActorInspectionService {
-  def put(ref: untyped.ActorRef, keys: Set[Key], groups: Set[Group]): Unit = actorInspectorManager ! Put(ref, keys, groups)
-  def release(ref: untyped.ActorRef): Unit                                 = actorInspectorManager ! Release(ref)
+class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef)
+    extends Extension
+    with grpc.ActorInspectionService {
+  import ActorInspectorImpl._
+
+  def put(ref: ActorRef, keys: Set[StateFragmentId], groups: Set[Group]): Unit =
+    actorInspectorManager ! Put(InspectableActorRef(ref), keys, groups)
+
+  def release(ref: ActorRef): Unit = actorInspectorManager ! Release(InspectableActorRef(ref))
 
   // TODO should not be here. Should not be called from within an actor.
   override def requestQueryableActors(in: grpc.QueryableActorsRequest): Future[grpc.QueryableActorsResponse] = {
     import scala.concurrent.ExecutionContext.Implicits.global // TODO
 
-    implicit val timer: Timeout       = 10 seconds // TODO BEEEHHHH
+    implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
     implicit val scheduler: Scheduler = system.scheduler
 
-    val f: Future[QueryableActorsResponse] = (actorInspectorManager ? QueryableActorsRequest).mapTo[QueryableActorsResponse]
+    val f: Future[InspectableActorsResponse] =
+      (actorInspectorManager ? QueryableActorsRequest).mapTo[InspectableActorsResponse]
     f.map(r => grpc.QueryableActorsResponse(r.queryable.toSeq))
   }
 
@@ -29,13 +40,16 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef) e
   override def requestActorGroups(in: grpc.ActorGroupsRequest): Future[grpc.ActorGroupsResponse] = {
     import scala.concurrent.ExecutionContext.Implicits.global // TODO
 
-    implicit val timer: Timeout       = 10 seconds // TODO BEEEHHHH
+    implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
     implicit val scheduler: Scheduler = system.scheduler
 
-    val f: Future[ActorGroupsResponse] = (actorInspectorManager ? ActorGroupsRequest(in.actor)).mapTo[ActorGroupsResponse]
+    val f: Future[ActorGroupsResponse] =
+      (actorInspectorManager ? ActorGroupsRequest(in.actor)).mapTo[ActorGroupsResponse]
     f.map {
       case ActorGroupsResponse(Right(groups)) =>
-        grpc.ActorGroupsResponse(grpc.ActorGroupsResponse.GroupsRes.Success(grpc.ActorGroupsResponse.Groups(groups.toSeq.map(_.name))))
+        grpc.ActorGroupsResponse(
+          grpc.ActorGroupsResponse.GroupsRes.Success(grpc.ActorGroupsResponse.Groups(groups.toSeq.map(_.name)))
+        )
       case ActorGroupsResponse(Left(ActorNotInspectable)) =>
         grpc.ActorGroupsResponse(grpc.ActorGroupsResponse.GroupsRes.Failure(ActorNotInspectable.toString)) // TODO BEEEHHHhhh
 
@@ -45,15 +59,38 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef) e
   override def requestActorKeys(in: grpc.ActorKeysRequest): Future[grpc.ActorKeysResponse] = {
     import scala.concurrent.ExecutionContext.Implicits.global // TODO
 
-    implicit val timer: Timeout       = 10 seconds // TODO BEEEHHHH
+    implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
     implicit val scheduler: Scheduler = system.scheduler
 
-    val f: Future[ActorKeysResponse] = (actorInspectorManager ? ActorGroupsRequest(in.actor)).mapTo[ActorKeysResponse]
+    val f: Future[StateFragmentIdsResponse] =
+      (actorInspectorManager ? ActorGroupsRequest(in.actor)).mapTo[StateFragmentIdsResponse]
     f.map {
-      case ActorKeysResponse(Right(keys)) =>
-        grpc.ActorKeysResponse(grpc.ActorKeysResponse.KeysRes.Success(grpc.ActorKeysResponse.Keys(keys.toSeq.map(_.value))))
-      case ActorKeysResponse(Left(ActorNotInspectable)) =>
+      case StateFragmentIdsResponse(Right(keys)) =>
+        grpc.ActorKeysResponse(
+          grpc.ActorKeysResponse.KeysRes.Success(grpc.ActorKeysResponse.Keys(keys.toSeq.map(_.id)))
+        )
+      case StateFragmentIdsResponse(Left(ActorNotInspectable)) =>
         grpc.ActorKeysResponse(grpc.ActorKeysResponse.KeysRes.Failure(ActorNotInspectable.toString)) // TODO BEEEHHHhhh
     }
+  }
+
+  def f(in: StateFragmentRequest): Future[StateFragmentResponse] = {
+    implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
+    implicit val scheduler: Scheduler = system.scheduler
+
+    (actorInspectorManager ? in).mapTo[Either[ActorInspectorManager.ActorNotInspectable.type, StateFragmentResponse]]
+
+    ???
+  }
+}
+
+object ActorInspectorImpl {
+
+  /**
+   * An [[ActorRef]] that can be inspected.
+   */
+  sealed abstract case class InspectableActorRef(ref: ActorRef)
+  private object InspectableActorRef {
+    def apply(ref: ActorRef): InspectableActorRef = new InspectableActorRef(ref) {}
   }
 }

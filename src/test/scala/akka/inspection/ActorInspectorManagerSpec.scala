@@ -2,9 +2,9 @@ package akka.inspection
 
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.inspection
-import akka.inspection.ActorInspection.{QueryRequest, QueryResponse}
+import akka.inspection.ActorInspection.{StateFragmentRequest, StateFragmentResponse}
 import akka.inspection.ActorInspectorManager.Groups.Group
-import akka.inspection.ActorInspectorManager.Keys.Key
+import akka.inspection.ActorInspectorManager.StateFragments.StateFragmentId
 import akka.inspection.ActorInspectorManager._
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -67,8 +67,8 @@ class ActorInspectorManagerSpec
       val inspectorRef = system.actorOf(Props[ActorInspectorManager])
       val dummyRef     = system.actorOf(Props[NopActor])
 
-      inspectorRef ! ActorKeysRequest(asString(dummyRef))
-      expectMsg(ActorKeysResponse(Left(ActorNotInspectable)))
+      inspectorRef ! StateFragmentIdsRequest(asString(dummyRef))
+      expectMsg(StateFragmentIdsResponse(Left(ActorNotInspectable)))
     }
 
     "fail to retrieve groups if the actor was deleted" in {
@@ -85,10 +85,10 @@ class ActorInspectorManagerSpec
       val inspectorRef = system.actorOf(Props[ActorInspectorManager])
       val dummyRef     = system.actorOf(Props[NopActor])
 
-      inspectorRef ! Put(dummyRef, Set("hello", "world").map(Key), Set.empty)
+      inspectorRef ! Put(dummyRef, Set("hello", "world").map(StateFragmentId), Set.empty)
       inspectorRef ! Release(dummyRef)
-      inspectorRef ! ActorKeysRequest(asString(dummyRef))
-      expectMsg(ActorKeysResponse(Left(ActorNotInspectable)))
+      inspectorRef ! StateFragmentIdsRequest(asString(dummyRef))
+      expectMsg(StateFragmentIdsResponse(Left(ActorNotInspectable)))
     }
 
 //    "bla" in {
@@ -106,11 +106,11 @@ class ActorInspectorManagerSpec
       case class Bla()
 
       val testRef = system.actorOf(Props[StatelessActor])
-      testRef ! QueryRequest.One(Key("yes"))
-      expectMsg(QueryResponse.Success("0"))
+      testRef ! StateFragmentRequest.One(StateFragmentId("yes"))
+      expectMsg(StateFragmentResponse.Success("0"))
       testRef ! Bla()
-      testRef ! QueryRequest.One(Key("yes"))
-      expectMsg(QueryResponse.Success("1"))
+      testRef ! StateFragmentRequest.One(StateFragmentId("yes"))
+      expectMsg(StateFragmentResponse.Success("1"))
     }
   }
 
@@ -132,8 +132,8 @@ object ActorInspectorManagerSpec {
       case _ => i += 1
     }
 
-    override def responses: Map[Key, QueryResponse] = Map {
-      Key("yes") -> QueryResponse.later(i)
+    override def responses: Map[StateFragment, StateFragmentResponse] = Map {
+      StateFragmentId("yes") -> QueryResponse.later(i)
     }
   }
 
@@ -144,8 +144,8 @@ object ActorInspectorManagerSpec {
       case _ => context.become(mainReceive(s.copy(i = s.i + 1)))
     }
 
-    override def responses(s: StatelessActor.State): Map[Key, QueryResponse] = Map {
-      Key("yes") -> QueryResponse.now(s.i)
+    override def responses(s: StatelessActor.State): Map[StateFragment, StateFragmentResponse] = Map {
+      StateFragmentId("yes") -> QueryResponse.now(s.i)
     }
     override implicit def showS: Show[StatelessActor.State] = (t: StatelessActor.State) => t.toString
   }

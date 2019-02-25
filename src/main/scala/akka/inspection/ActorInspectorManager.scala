@@ -1,7 +1,7 @@
 package akka.inspection
 
-import akka.actor.{Actor, ActorRef}
-import akka.inspection.ActorInspection.{StateFragmentId, StateFragmentResponse}
+import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.inspection.ActorInspection.{FinalizedStateFragment0, StateFragment, StateFragmentId, StateFragmentResponse}
 import akka.inspection.ActorInspectorImpl.InspectableActorRef
 import akka.inspection.ActorInspectorManager.Groups.Group
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
@@ -14,7 +14,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *
  * WARNING: needs to be singleton!
  */
-class ActorInspectorManager extends Actor {
+class ActorInspectorManager extends Actor with ActorLogging {
   import ActorInspectorManager._
 
   implicit val ec: ExecutionContext = context.dispatcher
@@ -29,23 +29,34 @@ class ActorInspectorManager extends Actor {
    * Handles the requests for state-fragments.
    *
    * Note: the caller expects a reply of type
-   * `Either[ActorInspectorManager.Error, List[(StateFragmentId, FinalizedStateFragment0)]]`.
+   * `Either[ActorInspectorManager.Error, Map[StateFragmentId, FinalizedStateFragment0]`.
    */
   private def fragmentRequests(s: State[ActorInspection.StateFragmentRequest]): Receive = {
-    case StateFragmentsRequest(fragments, id) =>
-      val replyTo = sender()
-      s.offer(ActorInspection.StateFragmentRequest(fragments, replyTo), id) match {
+    case s0 @ StateFragmentsRequest(fragments, id) =>
+      log.debug(s0.toString)
+
+      val initiator = sender()
+      s.offer(ActorInspection.StateFragmentRequest(fragments, self, initiator), id) match {
         case Right(m) =>
           m.foreach {
-            case QueueOfferResult.Enqueued    => () // inspectable actor will receive the request
-            case QueueOfferResult.Dropped     => replyTo ! Left(UnreachableInspectableActor(id))
-            case _: QueueOfferResult.Failure  => replyTo ! Left(UnreachableInspectableActor(id))
-            case QueueOfferResult.QueueClosed => replyTo ! Left(UnreachableInspectableActor(id))
+            case QueueOfferResult.Enqueued => () // inspectable actor will receive the request
+
+            case QueueOfferResult.Dropped =>
+              initiator ! StateFragmentsResponse.Failure(UnreachableInspectableActor(id))
+
+            case _: QueueOfferResult.Failure =>
+              initiator ! StateFragmentsResponse.Failure(UnreachableInspectableActor(id))
+
+            case QueueOfferResult.QueueClosed =>
+              initiator ! StateFragmentsResponse.Failure(UnreachableInspectableActor(id))
           }
-        case Left(err) => replyTo ! Left(err)
+
+        case Left(err) => initiator ! StateFragmentsResponse.Failure(err)
       }
 
-    case StateFragmentResponse(fragments, initiator) => initiator ! Right(fragments)
+    case s @ StateFragmentResponse(fragments, initiator) =>
+      log.debug(s.toString)
+      initiator ! StateFragmentsResponse.Success(fragments)
   }
 
   def subscriptionRequests(s: State[ActorInspection.StateFragmentRequest]): Receive = {
@@ -86,17 +97,17 @@ object ActorInspectorManager {
 
     def offer(m: M, id: String)(
       implicit ec: ExecutionContext
-    ): Either[ActorNotInspectable.type, Future[QueueOfferResult]] =
+    ): Either[ActorNotInspectable, Future[QueueOfferResult]] =
       inspectableActors.fromId(id).map(sourceQueues.offer(m, _))
 
     def inspectableActorIds: Set[String] = inspectableActors.actorIds
 
-    def groups(id: String): Either[ActorNotInspectable.type, Set[Group]] =
+    def groups(id: String): Either[ActorNotInspectable, Set[Group]] =
       inspectableActors.fromId(id).map(groups.groups)
 
     def inGroup(g: Group): Set[InspectableActorRef] = groups.inGroup(g)
 
-    def stateFragmentIds(id: String): Either[ActorNotInspectable.type, Set[StateFragmentId]] =
+    def stateFragmentIds(id: String): Either[ActorNotInspectable, Set[StateFragmentId]] =
       inspectableActors.fromId(id).map(stateFragments.stateFragmentsIds)
   }
 
@@ -121,8 +132,8 @@ object ActorInspectorManager {
 
     def actorIds: Set[String] = actors.map(_.toId)
 
-    def fromId(s: String): Either[ActorNotInspectable.type, InspectableActorRef] =
-      actors.find(_.toId == s).toRight(ActorNotInspectable)
+    def fromId(s: String): Either[ActorNotInspectable, InspectableActorRef] =
+      actors.find(_.toId == s).toRight(ActorNotInspectable(s))
   }
 
   object InspectableActors {
@@ -202,19 +213,20 @@ object ActorInspectorManager {
   final case class InspectableActorsResponse(queryable: Set[String]) extends Event
 
   final case class ActorGroupsRequest(path: String) extends Event
-  final case class ActorGroupsResponse(group: Either[ActorNotInspectable.type, Set[Group]]) extends Event
+  final case class ActorGroupsResponse(group: Either[ActorNotInspectable, Set[Group]]) extends Event
 
   final case class GroupRequest(group: Group) extends Event
   final case class GroupResponse(paths: Set[InspectableActorRef]) extends Event
 
   final case class StateFragmentIdsRequest(path: String) extends Event
-  final case class StateFragmentIdsResponse(keys: Either[ActorNotInspectable.type, Set[StateFragmentId]]) extends Event
+  final case class StateFragmentIdsResponse(keys: Either[ActorNotInspectable, Set[StateFragmentId]]) extends Event
 
-  final case class StateFragmentsRequest(ids: List[StateFragmentId], id: String) extends Event
-
-  sealed abstract class StateFragmentResponse extends Event
-  final case class StateFragmentResponseError(err: Error) extends StateFragmentResponse
-  final case class StateFragmentResponseSuccess(s: String) extends StateFragmentResponse
+  final case class StateFragmentsRequest(fragmentIds: Set[StateFragmentId], id: String) extends Event
+  sealed abstract class StateFragmentsResponse extends Event
+  object StateFragmentsResponse {
+    final case class Success(fragments: Map[StateFragmentId, FinalizedStateFragment0]) extends StateFragmentsResponse
+    final case class Failure(error: Error) extends StateFragmentsResponse
+  }
 
   final case class StateRequest(ref: ActorRef) extends Event
 

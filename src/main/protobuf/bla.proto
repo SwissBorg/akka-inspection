@@ -10,6 +10,7 @@ service ActorInspectionService {
     rpc RequestQueryableActors (QueryableActorsRequest) returns (QueryableActorsResponse) {}
     rpc RequestActorGroups (ActorGroupsRequest) returns (ActorGroupsResponse) {}
     rpc RequestActorKeys (ActorKeysRequest) returns (ActorKeysResponse) {}
+    rpc RequestStateFragments (StateFragmentsRequest) returns (StateFragmentsResponse) {}
 }
 
 message QueryableActorsRequest {
@@ -46,6 +47,22 @@ message ActorKeysResponse {
 
     oneof keys_res {
         Keys success = 1;
+        string failure = 2;
+    }
+}
+
+message StateFragmentsRequest {
+    string id = 1;
+    string actor = 2;
+    repeated string fragment_ids = 3;
+}
+message StateFragmentsResponse {
+    message Fragments {
+        map<string, string> fragments = 1;
+    }
+
+    oneof fragments_res {
+        Fragments success = 1;
         string failure = 2;
     }
 }

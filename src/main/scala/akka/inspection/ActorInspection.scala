@@ -15,7 +15,7 @@ import cats.Show
  *
  * @tparam S the type of the stateful-receive's state.
  */
-trait ActorInspection[S] { _: Actor =>
+trait ActorInspection[S] extends Actor {
   import ActorInspection._
 
   /**
@@ -33,11 +33,6 @@ trait ActorInspection[S] { _: Actor =>
    */
   type StateFragment = ActorInspection.StateFragment[S]
   val StateFragment = new StateFragmentPartiallyApplied[S]()
-
-  /**
-   * TODO not a fan
-   */
-  implicit def showS: Show[S]
 
   /**
    * [[StateFragment]]s given their id.
@@ -59,24 +54,31 @@ trait ActorInspection[S] { _: Actor =>
    * A receive that handles inspection events.
    */
   final def inspectionReceive(s: S): Receive = {
-    case r: StateFragmentRequest =>
-      handleQuery(s, r, sender())
-      sender ! Ack
+    case r @ StateFragmentRequest(_, replyTo, _) =>
+      handleQuery(s, r, replyTo)
+      sender() ! Ack
 
-    case Init => sender ! Ack // for the backpressured events from the `ActorInspectorManager`
+    case Init => sender() ! Ack // for the backpressured events from the `ActorInspectorManager`
 
   }
 
-  protected def handleQuery(s: S, req: StateFragmentRequest, sender: ActorRef): Unit =
-    sender ! req.fragmentIds.foldRight(StateFragmentResponse(req.initiator)) {
-      case (id, response) =>
+  protected def handleQuery(s: S, req: StateFragmentRequest, replyTo: ActorRef): Unit =
+    replyTo ! req.fragmentIds.foldLeft(StateFragmentResponse(req.initiator)) {
+      case (response, id) =>
         response.copy(
-          fragments = (id, stateFragments.getOrElse(id, StateFragment.undefined).run(s)) :: response.fragments
+          fragments = response.fragments + (id -> stateFragments.getOrElse(id, StateFragment.undefined).run(s))
         )
     }
 
-  override def aroundPreStart(): Unit = ActorInspector(context.system).put(self, stateFragments.keySet, groups)
-  override def aroundPostStop(): Unit = ActorInspector(context.system).release(self)
+  override def aroundPreStart(): Unit = {
+    super.aroundPreStart()
+    ActorInspector(context.system).put(self, stateFragments.keySet, groups)
+  }
+
+  override def aroundPostStop(): Unit = {
+    ActorInspector(context.system).release(self)
+    super.aroundPostStop()
+  }
 }
 
 private[inspection] object ActorInspection {
@@ -85,15 +87,14 @@ private[inspection] object ActorInspection {
     val initiator: ActorRef
   }
 
-  final case class StateFragmentRequest(fragmentIds: List[StateFragmentId], initiator: ActorRef)
+  final case class StateFragmentRequest(fragmentIds: Set[StateFragmentId], replyTo: ActorRef, initiator: ActorRef)
       extends StateFragmentEvent
 
-  final case class StateFragmentResponse(fragments: List[(StateFragmentId, FinalizedStateFragment0)],
-                                         initiator: ActorRef)
+  final case class StateFragmentResponse(fragments: Map[StateFragmentId, FinalizedStateFragment0], initiator: ActorRef)
       extends StateFragmentEvent
 
   object StateFragmentResponse {
-    def apply(initiator: ActorRef): StateFragmentResponse = StateFragmentResponse(List.empty, initiator)
+    def apply(initiator: ActorRef): StateFragmentResponse = StateFragmentResponse(Map.empty, initiator)
   }
 
   /**
@@ -123,7 +124,9 @@ private[inspection] object ActorInspection {
       override def run(s: S): FinalizedStateFragment0 = FinalizedStateFragment(fragment)
     }
 
-    /**
+//    final private case class Later[S](fragment: () => String) extends StateFragment[S] {}
+
+      /**
      * Describes a fragment dependent on [[S]].
      */
     final private case class Given[S](fragment: S => String) extends StateFragment[S] {

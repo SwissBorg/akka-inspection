@@ -1,33 +1,46 @@
 package akka.inspection
 
-import akka.actor.{Actor, ActorContext, ActorRef}
-import akka.inspection.ActorInspection.StateFragmentResponse
+import akka.actor.{Actor, ActorRef}
+import akka.inspection.ActorInspection.{StateFragmentId, StateFragmentResponse}
 import akka.inspection.ActorInspectorImpl.InspectableActorRef
 import akka.inspection.ActorInspectorManager.Groups.Group
-import akka.inspection.ActorInspectorManager.StateFragments.StateFragmentId
-import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueue, SourceQueueWithComplete}
+import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{ActorMaterializer, Materializer, OverflowStrategy, QueueOfferResult}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/**
+ * Manages all the requests to inspect actors.
+ *
+ * WARNING: needs to be singleton!
+ */
 class ActorInspectorManager extends Actor {
   import ActorInspectorManager._
 
+  implicit val ec: ExecutionContext = context.dispatcher
+  implicit val mat: Materializer = ActorMaterializer()
+
   override def receive: Receive = statefulReceive(State.empty)
 
-  def statefulReceive(s: State[ActorInspection.StateFragmentRequest]): Receive =
+  private def statefulReceive(s: State[ActorInspection.StateFragmentRequest]): Receive =
     fragmentRequests(s).orElse(subscriptionRequests(s)).orElse(infoRequests(s))
 
-  def fragmentRequests(s: State[ActorInspection.StateFragmentRequest]): Receive = {
+  /**
+   * Handles the requests for state-fragments.
+   *
+   * Note: the caller expects a reply of type
+   * `Either[ActorInspectorManager.Error, List[(StateFragmentId, FinalizedStateFragment0)]]`.
+   */
+  private def fragmentRequests(s: State[ActorInspection.StateFragmentRequest]): Receive = {
     case StateFragmentsRequest(fragments, id) =>
       val replyTo = sender()
       s.offer(ActorInspection.StateFragmentRequest(fragments, replyTo), id) match {
         case Right(m) =>
           m.foreach {
-            case _: QueueOfferResult.Enqueued.type    => () // inspectable actor will receive the request
-            case _: QueueOfferResult.Dropped.type     => replyTo ! Left(UnreachableInspectableActor(id))
-            case _: QueueOfferResult.Failure          => replyTo ! Left(UnreachableInspectableActor(id))
-            case _: QueueOfferResult.QueueClosed.type => replyTo ! Left(UnreachableInspectableActor(id))
+            case QueueOfferResult.Enqueued    => () // inspectable actor will receive the request
+            case QueueOfferResult.Dropped     => replyTo ! Left(UnreachableInspectableActor(id))
+            case _: QueueOfferResult.Failure  => replyTo ! Left(UnreachableInspectableActor(id))
+            case QueueOfferResult.QueueClosed => replyTo ! Left(UnreachableInspectableActor(id))
           }
         case Left(err) => replyTo ! Left(err)
       }
@@ -46,18 +59,16 @@ class ActorInspectorManager extends Actor {
     case StateFragmentIdsRequest(id) => sender() ! StateFragmentIdsResponse(s.stateFragmentIds(id))
     case GroupRequest(group)         => sender() ! GroupResponse(s.inGroup(group))
   }
-
-  implicit val actorMaterializer: ActorMaterializer = ActorMaterializer()
-  implicit val ec: ExecutionContext = context.system.getDispatcher
 }
 
 object ActorInspectorManager {
-  case class State[M](private val inspectableActors: InspectableActors,
-                      private val stateFragments: StateFragments,
-                      private val groups: Groups,
-                      private val sourceQueues: SourceQueues[M]) {
-    def put(ref: InspectableActorRef, keys: Set[StateFragmentId], groups: Set[Group])(implicit context: ActorContext,
-                                                                                      mat: Materializer): State[M] =
+  case class State[M](
+    private val inspectableActors: InspectableActors,
+    private val stateFragments: StateFragments,
+    private val groups: Groups,
+    private val sourceQueues: SourceQueues[M]
+  )(implicit context: ExecutionContext, materializer: Materializer) {
+    def put(ref: InspectableActorRef, keys: Set[StateFragmentId], groups: Set[Group]): State[M] =
       copy(
         inspectableActors = inspectableActors.add(ref),
         stateFragments = this.stateFragments.addStateFragment(ref, keys),
@@ -90,7 +101,7 @@ object ActorInspectorManager {
   }
 
   object State {
-    def empty[M]: State[M] =
+    def empty[M](implicit context: ExecutionContext, materializer: Materializer): State[M] =
       State(inspectableActors = InspectableActors.empty,
             stateFragments = StateFragments.empty,
             groups = Groups.empty,
@@ -108,12 +119,10 @@ object ActorInspectorManager {
 
     def actorRefs: Set[InspectableActorRef] = actors
 
-    def actorIds: Set[String] = actors.map(toId)
-
-    def toId(ref: InspectableActorRef): String = ref.ref.path.address.toString
+    def actorIds: Set[String] = actors.map(_.toId)
 
     def fromId(s: String): Either[ActorNotInspectable.type, InspectableActorRef] =
-      actors.find(toId(_) == s).toRight(ActorNotInspectable)
+      actors.find(_.toId == s).toRight(ActorNotInspectable)
   }
 
   object InspectableActors {
@@ -157,12 +166,6 @@ object ActorInspectorManager {
   }
 
   object StateFragments {
-
-    /**
-     * Represents the identifier of a subset of an actor's state.
-     */
-    final case class StateFragmentId(id: String) extends AnyVal
-
     val empty: StateFragments = StateFragments(Map.empty)
   }
 
@@ -215,7 +218,6 @@ object ActorInspectorManager {
 
   final case class StateRequest(ref: ActorRef) extends Event
 
-  // TODO move
   sealed abstract class Error extends Product with Serializable
   final case class ActorNotInspectable(id: String) extends Error
   final case class UnreachableInspectableActor(id: String) extends Error

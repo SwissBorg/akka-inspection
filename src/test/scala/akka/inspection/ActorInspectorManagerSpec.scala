@@ -1,14 +1,16 @@
 package akka.inspection
 
 import akka.actor.{Actor, ActorSystem, Props}
-import akka.inspection
-import akka.inspection.ActorInspection.{StateFragmentRequest, StateFragmentResponse}
+import akka.inspection.ActorInspection.{StateFragment, StateFragmentId, StateFragmentRequest, StateFragmentResponse}
+import akka.inspection.ActorInspectorImpl.InspectableActorRef
 import akka.inspection.ActorInspectorManager.Groups.Group
-import akka.inspection.ActorInspectorManager.StateFragments.StateFragmentId
 import akka.inspection.ActorInspectorManager._
 import akka.testkit.{ImplicitSender, TestKit}
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import cats.Show
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+
+import scala.concurrent.ExecutionContext
+import scala.util.Success
 
 class ActorInspectorManagerSpec
     extends TestKit(ActorSystem("ActorInspectorManagerSpec"))
@@ -21,72 +23,72 @@ class ActorInspectorManagerSpec
   "ActorInspectorManager" must {
     "send back all the groups of an actor" in {
       val inspectorRef = system.actorOf(Props[ActorInspectorManager])
-      val dummyRef     = system.actorOf(Props[NopActor])
+      val dummyRef = InspectableActorRef(system.actorOf(Props[NopActor]))
 
       val groups = Set("hello", "world").map(Group)
 
       inspectorRef ! Put(dummyRef, Set.empty, groups)
-      inspectorRef ! ActorGroupsRequest(asString(dummyRef))
+      inspectorRef ! ActorGroupsRequest(dummyRef.toId)
       expectMsg(ActorGroupsResponse(Right(groups)))
     }
 
     "handle a an empty string as a valid group name" in {
       val inspectorRef = system.actorOf(Props[ActorInspectorManager])
-      val dummyRef     = system.actorOf(Props[NopActor])
+      val dummyRef = InspectableActorRef(system.actorOf(Props[NopActor]))
 
       val groups = Set(Group(""))
 
       inspectorRef ! Put(dummyRef, Set.empty, groups)
-      inspectorRef ! ActorGroupsRequest(asString(dummyRef))
+      inspectorRef ! ActorGroupsRequest(dummyRef.toId)
       expectMsg(ActorGroupsResponse(Right(groups)))
     }
 
     "add groups to an actor in multiple steps" in {
       val inspectorRef = system.actorOf(Props[ActorInspectorManager])
-      val dummyRef     = system.actorOf(Props[NopActor])
+      val dummyRef = InspectableActorRef(system.actorOf(Props[NopActor]))
 
       val helloGroups = Set(Group("hello"))
       val worldGroups = Set(Group("world"))
 
       inspectorRef ! Put(dummyRef, Set.empty, helloGroups)
       inspectorRef ! Put(dummyRef, Set.empty, worldGroups)
-      inspectorRef ! ActorGroupsRequest(asString(dummyRef))
+      inspectorRef ! ActorGroupsRequest(dummyRef.toId)
       expectMsg(ActorGroupsResponse(Right(helloGroups ++ worldGroups)))
     }
 
     "fail when requesting the groups of an undeclared actor" in {
       val inspectorRef = system.actorOf(Props[ActorInspectorManager])
-      val dummyRef     = system.actorOf(Props[NopActor])
+      val dummyRef = InspectableActorRef(system.actorOf(Props[NopActor]))
 
-      inspectorRef ! ActorGroupsRequest(asString(dummyRef))
+      inspectorRef ! ActorGroupsRequest(dummyRef.toId)
       expectMsg(ActorGroupsResponse(Left(ActorNotInspectable)))
     }
 
     "fail when requesting the keys of an undeclared actor" in {
       val inspectorRef = system.actorOf(Props[ActorInspectorManager])
-      val dummyRef     = system.actorOf(Props[NopActor])
+      val dummyRef = InspectableActorRef(system.actorOf(Props[NopActor]))
 
-      inspectorRef ! StateFragmentIdsRequest(asString(dummyRef))
+      inspectorRef ! StateFragmentIdsRequest(dummyRef.toId)
       expectMsg(StateFragmentIdsResponse(Left(ActorNotInspectable)))
     }
 
     "fail to retrieve groups if the actor was deleted" in {
       val inspectorRef = system.actorOf(Props[ActorInspectorManager])
-      val dummyRef     = system.actorOf(Props[NopActor])
+      val dummyRef = InspectableActorRef(system.actorOf(Props[NopActor]))
 
       inspectorRef ! Put(dummyRef, Set.empty, Set(Group("hello")))
       inspectorRef ! Release(dummyRef)
-      inspectorRef ! ActorGroupsRequest(asString(dummyRef))
+      inspectorRef ! ActorGroupsRequest(dummyRef.toId)
       expectMsg(ActorGroupsResponse(Left(ActorNotInspectable)))
     }
 
     "fail to retrieve keys if the actor was deleted" in {
       val inspectorRef = system.actorOf(Props[ActorInspectorManager])
-      val dummyRef     = system.actorOf(Props[NopActor])
+      val dummyRef = InspectableActorRef(system.actorOf(Props[NopActor]))
 
       inspectorRef ! Put(dummyRef, Set("hello", "world").map(StateFragmentId), Set.empty)
       inspectorRef ! Release(dummyRef)
-      inspectorRef ! StateFragmentIdsRequest(asString(dummyRef))
+      inspectorRef ! StateFragmentIdsRequest(dummyRef.toId)
       expectMsg(StateFragmentIdsResponse(Left(ActorNotInspectable)))
     }
 
@@ -102,14 +104,33 @@ class ActorInspectorManagerSpec
 //    }
 
     "foo" in {
-      case class Bla()
+      implicit val ec: ExecutionContext = system.getDispatcher
 
-      val testRef = system.actorOf(Props[StatelessActor])
-      testRef ! StateFragmentRequest.One(StateFragmentId("yes"))
-      expectMsg(StateFragmentResponse.Success("0"))
-      testRef ! Bla()
-      testRef ! StateFragmentRequest.One(StateFragmentId("yes"))
-      expectMsg(StateFragmentResponse.Success("1"))
+      val inspector = ActorInspector(system)
+
+      val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
+
+      val requests = List(StateFragmentId("yes"))
+
+      // eeh
+      inspector.f(StateFragmentRequest(requests, inspectableRef.ref)).onComplete {
+        case Success(Right(StateFragmentResponse(fragments, _))) =>
+          assertResult(requests.map((_, StateFragment.apply(0))))(fragments)
+        case _ => assert(false)
+      }
+
+//      case class Bla()
+//
+//      val testRef = system.actorOf(Props[StatelessActor])
+//      val requests = List(StateFragmentId("yes"))
+//
+//      testRef ! StateFragmentRequest(requests, testRef)
+//      expectMsg(StateFragmentResponse(requests.map((_, StateFragment.now(0))), testRef))
+//
+//      testRef ! Bla()
+//
+//      testRef ! StateFragmentRequest(requests, testRef)
+//      expectMsg(StateFragmentResponse(requests.map((_, StateFragment.now(1))), testRef))
     }
   }
 
@@ -131,22 +152,35 @@ object ActorInspectorManagerSpec {
       case _ => i += 1
     }
 
-    override def responses: Map[StateFragment, StateFragmentResponse] = Map {
-      StateFragmentId("yes") -> QueryResponse.later(i)
+    /**
+     * Description of how to generate [[StateFragment]]s given the state `s`.
+     *
+     * @param s the actor's state.
+     * @return mapping from
+     */
+    override def stateFragments: Map[StateFragmentId, StateFragment] = Map {
+      StateFragmentId("yes") -> StateFragment(5)
     }
   }
 
   class StatelessActor extends Actor with ActorInspection[StatelessActor.State] {
     override def receive: Receive = mainReceive(StatelessActor.State(0))
 
-    def mainReceive(s: StatelessActor.State): Receive = inspectableReceive(s) {
+    def mainReceive(s: StatelessActor.State): Receive = withInspection(s) {
       case _ => context.become(mainReceive(s.copy(i = s.i + 1)))
     }
 
-    override def responses(s: StatelessActor.State): Map[StateFragment, StateFragmentResponse] = Map {
-      StateFragmentId("yes") -> QueryResponse.now(s.i)
+    implicit override def showS: Show[StatelessActor.State] = (t: StatelessActor.State) => t.toString
+
+    /**
+     * Description of how to generate [[StateFragment]]s given the state `s`.
+     *
+     * @param s the actor's state.
+     * @return mapping from
+     */
+    override def stateFragments: Map[StateFragmentId, StateFragment] = Map {
+      StateFragmentId("yes") -> StateFragment.state(s => s.i)
     }
-    override implicit def showS: Show[StatelessActor.State] = (t: StatelessActor.State) => t.toString
   }
 
   object StatelessActor {

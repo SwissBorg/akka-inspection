@@ -1,9 +1,8 @@
 package akka.inspection
 
 import akka.actor.{ActorRef, ActorSystem, Extension, Scheduler}
-import akka.inspection.ActorInspection.{StateFragmentRequest, StateFragmentResponse}
+import akka.inspection.ActorInspection.{StateFragmentId, StateFragmentRequest, StateFragmentResponse}
 import akka.inspection.ActorInspectorManager.Groups.Group
-import akka.inspection.ActorInspectorManager.StateFragments.StateFragmentId
 import akka.inspection.ActorInspectorManager._
 import akka.pattern.ask
 import akka.util.Timeout
@@ -71,13 +70,13 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef)
     }
   }
 
-  def f(in: StateFragmentRequest): Future[StateFragmentResponse] = {
+  def f(
+    in: StateFragmentRequest
+  ): Future[Either[ActorInspectorManager.ActorNotInspectable.type, StateFragmentResponse]] = {
     implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
     implicit val scheduler: Scheduler = system.scheduler
 
     (actorInspectorManager ? in).mapTo[Either[ActorInspectorManager.ActorNotInspectable.type, StateFragmentResponse]]
-
-    ???
   }
 }
 
@@ -86,7 +85,10 @@ object ActorInspectorImpl {
   /**
    * An [[ActorRef]] that can be inspected.
    */
-  sealed abstract case class InspectableActorRef(ref: ActorRef)
+  sealed abstract case class InspectableActorRef(ref: ActorRef) {
+    val toId: String = ref.path.address.toString
+  }
+
   object InspectableActorRef {
     private[inspection] def apply(ref: ActorRef): InspectableActorRef = new InspectableActorRef(ref) {}
 

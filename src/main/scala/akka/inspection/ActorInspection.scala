@@ -1,73 +1,186 @@
 package akka.inspection
 
 import akka.actor.{Actor, ActorRef}
-import akka.inspection.ActorInspectorImpl.InspectableActorRef.Ack
-import akka.inspection.ActorInspectorManager.StateFragments.StateFragmentId
+import akka.inspection.ActorInspection.StateFragment.StateFragmentPartiallyApplied
+import akka.inspection.ActorInspection._
+import akka.inspection.ActorInspectorImpl.InspectableActorRef.{Ack, Init}
 import cats.Show
 
+/**
+ * Adds the ability to inspect the actor's state to an external service. This trait is useful for actor's using
+ * `context.become(...)` with a stateful-receive taking a state of type [[S]].
+ *
+ * It uses the concept of a [[StateFragment]] and it's related [[StateFragmentId]]. These represent a subset of
+ * an actor's state. Note that multiple [[StateFragment]]s can overlap.
+ *
+ * @tparam S the type of the stateful-receive's state.
+ */
 trait ActorInspection[S] { _: Actor =>
   import ActorInspection._
 
-  type Group = akka.inspection.ActorInspectorManager.Groups.Group
-  type StateFragmentId = akka.inspection.ActorInspectorManager.StateFragments.StateFragmentId
-  type StateFragment = akka.inspection.ActorInspection.StateFragment
+  /**
+   * @see [[ActorInspectorManager.Groups.Group]]
+   */
+  type Group = ActorInspectorManager.Groups.Group
 
+  /**
+   * @see [[ActorInspection.StateFragmentId]]
+   */
+  type StateFragmentId = ActorInspection.StateFragmentId
+
+  /**
+   * @see [[ActorInspection.StateFragment]]
+   */
+  type StateFragment = ActorInspection.StateFragment[S]
+  val StateFragment = new StateFragmentPartiallyApplied[S]()
+
+  /**
+   * TODO not a fan
+   */
   implicit def showS: Show[S]
 
-  def responses(s: S): Map[StateFragmentId, StateFragment]
+  /**
+   * [[StateFragment]]s given their id.
+   */
+  def stateFragments: Map[StateFragmentId, StateFragment]
 
+  /**
+   * The groups in which the actor is a member.
+   * This is used so that multiple actors can be inspected together.
+   */
   def groups: Set[Group] = Set.empty
 
-  private def allFragments(s: S): Map[StateFragmentId, StateFragment] =
-    responses(s) + (StateFragmentId("all") -> StateFragment.now(s)) // TODO doesn't really work for var state
+  /**
+   * Adds the inspection events handling to `r`.
+   */
+  final def withInspection(s: S)(r: Receive): Receive = inspectionReceive(s).orElse(r)
 
-  def inspectableReceive(s: S)(r: Receive): Receive = inspectionReceive(s).orElse(r)
-
-  protected def inspectionReceive(s: S): Receive = {
+  /**
+   * A receive that handles inspection events.
+   */
+  final def inspectionReceive(s: S): Receive = {
     case r: StateFragmentRequest =>
       handleQuery(s, r, sender())
       sender ! Ack
-  }
 
-  private def queryAll(s: S): StateFragmentResponse = ???
+    case Init => sender ! Ack // for the backpressured events from the `ActorInspectorManager`
+
+  }
 
   protected def handleQuery(s: S, req: StateFragmentRequest, sender: ActorRef): Unit =
     sender ! req.fragmentIds.foldRight(StateFragmentResponse(req.initiator)) {
       case (id, response) =>
         response.copy(
-          fragments = (id, allFragments(s).getOrElse(id, StateFragment.Undefined)) :: response.fragments
+          fragments = (id, stateFragments.getOrElse(id, StateFragment.undefined).run(s)) :: response.fragments
         )
     }
+
+  override def aroundPreStart(): Unit = ActorInspector(context.system).put(self, stateFragments.keySet, groups)
+  override def aroundPostStop(): Unit = ActorInspector(context.system).release(self)
 }
 
 private[inspection] object ActorInspection {
 
-  sealed abstract class Event extends Product with Serializable
+  sealed abstract class StateFragmentEvent extends Product with Serializable {
+    val initiator: ActorRef
+  }
 
-  final case class StateFragmentRequest(fragmentIds: List[StateFragmentId], initiator: ActorRef) extends Event
+  final case class StateFragmentRequest(fragmentIds: List[StateFragmentId], initiator: ActorRef)
+      extends StateFragmentEvent
 
-  final case class StateFragmentResponse(fragments: List[(StateFragmentId, StateFragment)], initiator: ActorRef)
-      extends Event
+  final case class StateFragmentResponse(fragments: List[(StateFragmentId, FinalizedStateFragment0)],
+                                         initiator: ActorRef)
+      extends StateFragmentEvent
+
   object StateFragmentResponse {
     def apply(initiator: ActorRef): StateFragmentResponse = StateFragmentResponse(List.empty, initiator)
   }
 
   /**
-   * Messages sent by an actor implementing [[ActorInspection]]
-   * to the actor that made the related request.
+   * Represents the identifier of a subset of an actor's state.
+   * @see [[StateFragment]]
    */
-  sealed abstract class StateFragment extends Event
-  object StateFragment {
-    final case class Now(fragments: String) extends StateFragment
-    final case class Lazy(res: () => Now) extends StateFragment
-    final case object Undefined extends StateFragment
+  final case class StateFragmentId(id: String) extends AnyVal
 
-    def now[T: Show](t: T): Now = Now(Show[T].show(t))
-    def later[T: Show](t: => T): Lazy = Lazy(() => now(t))
-    def custom(s: String): Now = Now(s)
-    val sensitive: Now = custom("[SENSITIVE]")
+  /**
+   * Describes how to extract a fragment from the state [[S]].
+   * @tparam S the type of state.
+   */
+  sealed abstract class StateFragment[S] extends Product with Serializable {
+
+    /**
+     * Runs the [[StateFragment]] to build a [[FinalizedStateFragment0]].
+     */
+    def run(s: S): FinalizedStateFragment0
   }
 
-  final case object ChildrenRequest
-  final case class ChildrenResult(children: List[ActorRef])
+  object StateFragment {
+
+    /**
+     * Describes a fragment whose value doesn't change.
+     */
+    final private case class Fix[S](fragment: String) extends StateFragment[S] {
+      override def run(s: S): FinalizedStateFragment0 = FinalizedStateFragment(fragment)
+    }
+
+    /**
+     * Describes a fragment dependent on [[S]].
+     */
+    final private case class Given[S](fragment: S => String) extends StateFragment[S] {
+      def run(s: S): FinalizedStateFragment0 = FinalizedStateFragment(fragment(s))
+    }
+
+    /**
+     * Describes an undefined fragment.
+     */
+    final private case class Undefined[S]() extends StateFragment[S] {
+      override def run(s: S): FinalizedStateFragment0 = UndefinedFragment
+    }
+
+    /**
+     * Build a [[StateFragment]] independent of the state [[S]].
+     */
+    def apply[S, T: Show](t: T): StateFragment[S] = Fix(Show[T].show(t))
+
+    /**
+     * Build a [[StateFragment]] from the state [[S]].
+     */
+    def state[S, T: Show](t: S => T): StateFragment[S] = Given(t.andThen(Show[T].show))
+
+    /**
+     * Build a [[StateFragment]] always returning `s`.
+     */
+    def fix[S](s: String): StateFragment[S] = Fix(s)
+
+    /**
+     * Build a [[StateFragment]] that hides sensitive data.
+     */
+    def sensitive[S]: StateFragment[S] = fix("[SENSITIVE]")
+
+    /**
+     * [[StateFragment]] fallback.
+     */
+    private[inspection] def undefined[S]: StateFragment[S] = Undefined()
+
+    /**
+     * Helper to provide [[S]] so that the user that extends [[ActorInspection]]
+     * does not have to annotate the state's type when building state fragments.
+     */
+    final private[inspection] class StateFragmentPartiallyApplied[S](val dummy: Boolean = true) extends AnyVal {
+      def apply[T: Show](t: T): StateFragment[S] = StateFragment(t)
+      def state[T: Show](t: S => T): StateFragment[S] = StateFragment.state(t)
+      def fix(s: String): StateFragment[Any] = StateFragment.fix(s)
+      def sensitive: StateFragment[S] = StateFragment.sensitive
+      def undefined: StateFragment[S] = StateFragment.undefined
+    }
+  }
+
+  /**
+   * A state fragment that has been run.
+   *
+   * @see [[StateFragment]]
+   */
+  sealed abstract class FinalizedStateFragment0 extends Product with Serializable
+  final case class FinalizedStateFragment(fragment: String) extends FinalizedStateFragment0
+  final case object UndefinedFragment extends FinalizedStateFragment0
 }

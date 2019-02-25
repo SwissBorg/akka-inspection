@@ -1,10 +1,11 @@
 package akka.inspection
 
 import akka.actor.{Actor, ActorContext, ActorRef}
+import akka.inspection.ActorInspection.StateFragmentResponse
 import akka.inspection.ActorInspectorImpl.InspectableActorRef
 import akka.inspection.ActorInspectorManager.Groups.Group
 import akka.inspection.ActorInspectorManager.StateFragments.StateFragmentId
-import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueue}
+import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueue, SourceQueueWithComplete}
 import akka.stream.{ActorMaterializer, Materializer, OverflowStrategy, QueueOfferResult}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -12,28 +13,12 @@ import scala.concurrent.{ExecutionContext, Future}
 class ActorInspectorManager extends Actor {
   import ActorInspectorManager._
 
-  override def receive: Receive = mainReceive(State.empty)
+  override def receive: Receive = statefulReceive(State.empty)
 
-  implicit val actorMaterializer: ActorMaterializer = ActorMaterializer()
+  def statefulReceive(s: State[ActorInspection.StateFragmentRequest]): Receive =
+    fragmentRequests(s).orElse(subscriptionRequests(s)).orElse(infoRequests(s))
 
-  implicit val ec: ExecutionContext = context.system.getDispatcher
-
-  def mainReceive(s: State[ActorInspection.StateFragmentRequest]): Receive = {
-    case Put(ref, keys0, groups0) => context.become(mainReceive(s.put(ref, keys0, groups0)))
-    case Release(ref)             => context.become(mainReceive(s.release(ref)))
-
-    case _: QueryableActorsRequest.type =>
-      sender() ! InspectableActorsResponse(s.inspectableActorIds)
-
-    case ActorGroupsRequest(id) =>
-      sender() ! ActorGroupsResponse(s.groups(id))
-
-    case StateFragmentIdsRequest(id) =>
-      sender() ! StateFragmentIdsResponse(s.stateFragmentIds(id))
-
-    case GroupRequest(group) =>
-      sender() ! GroupResponse(s.inGroup(group))
-
+  def fragmentRequests(s: State[ActorInspection.StateFragmentRequest]): Receive = {
     case StateFragmentsRequest(fragments, id) =>
       val replyTo = sender()
       s.offer(ActorInspection.StateFragmentRequest(fragments, replyTo), id) match {
@@ -47,10 +32,23 @@ class ActorInspectorManager extends Actor {
         case Left(err) => replyTo ! Left(err)
       }
 
-//      case StateFragmentResponse
+    case StateFragmentResponse(fragments, initiator) => initiator ! Right(fragments)
   }
 
-  def polling(s: State[StateFragmentsRequest]): Receive = ???
+  def subscriptionRequests(s: State[ActorInspection.StateFragmentRequest]): Receive = {
+    case Put(ref, keys0, groups0) => context.become(statefulReceive(s.put(ref, keys0, groups0)))
+    case Release(ref)             => context.become(statefulReceive(s.release(ref)))
+  }
+
+  def infoRequests(s: State[ActorInspection.StateFragmentRequest]): Receive = {
+    case InspectableActorsRequest    => sender() ! InspectableActorsResponse(s.inspectableActorIds)
+    case ActorGroupsRequest(id)      => sender() ! ActorGroupsResponse(s.groups(id))
+    case StateFragmentIdsRequest(id) => sender() ! StateFragmentIdsResponse(s.stateFragmentIds(id))
+    case GroupRequest(group)         => sender() ! GroupResponse(s.inGroup(group))
+  }
+
+  implicit val actorMaterializer: ActorMaterializer = ActorMaterializer()
+  implicit val ec: ExecutionContext = context.system.getDispatcher
 }
 
 object ActorInspectorManager {
@@ -171,19 +169,21 @@ object ActorInspectorManager {
   /**
    * Manages the
    */
-  final case class SourceQueues[M](private val sourceQueues: Map[InspectableActorRef, SourceQueue[M]]) {
+  final case class SourceQueues[M](private val sourceQueues: Map[InspectableActorRef, SourceQueueWithComplete[M]]) {
     def add(ref: InspectableActorRef)(implicit mat: Materializer): SourceQueues[M] =
       copy(
         sourceQueues = sourceQueues + (ref -> Source
           .queue[M](5, OverflowStrategy.backpressure)
-          .toMat(Sink.actorRefWithAck(ref.ref, ???, ???, ???))(Keep.left)
+          .toMat(
+            Sink
+              .actorRefWithAck(ref.ref, InspectableActorRef.Init, InspectableActorRef.Ack, InspectableActorRef.Complete)
+          )(Keep.left)
           .run())
       )
 
     def remove(ref: InspectableActorRef): SourceQueues[M] = copy(sourceQueues = sourceQueues - ref)
 
-    def offer(m: M, ref: InspectableActorRef)(implicit ec: ExecutionContext): Future[QueueOfferResult] =
-      sourceQueues(ref).offer(m)
+    def offer(m: M, ref: InspectableActorRef): Future[QueueOfferResult] = sourceQueues(ref).offer(m)
   }
 
   object SourceQueues {
@@ -195,7 +195,7 @@ object ActorInspectorManager {
   final case class Put(ref: InspectableActorRef, keys: Set[StateFragmentId], groups: Set[Group]) extends Event
   final case class Release(ref: InspectableActorRef) extends Event
 
-  final case object QueryableActorsRequest extends Event
+  final case object InspectableActorsRequest extends Event
   final case class InspectableActorsResponse(queryable: Set[String]) extends Event
 
   final case class ActorGroupsRequest(path: String) extends Event

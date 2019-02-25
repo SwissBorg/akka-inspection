@@ -8,7 +8,6 @@ import akka.inspection.ActorInspectorManager.StateFragments.StateFragmentId
 import akka.inspection.ActorInspectorManager._
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
-import akka.inspection.util.ActorRefUtil._
 import cats.Show
 
 class ActorInspectorManagerSpec

@@ -1,14 +1,11 @@
 package akka.inspection
 
-import akka.NotUsed
 import akka.actor.{ActorRef, ActorSystem, Extension, Scheduler}
 import akka.inspection.ActorInspection.{StateFragmentRequest, StateFragmentResponse}
 import akka.inspection.ActorInspectorManager.Groups.Group
 import akka.inspection.ActorInspectorManager.StateFragments.StateFragmentId
 import akka.inspection.ActorInspectorManager._
 import akka.pattern.ask
-import akka.stream.{Materializer, QueueOfferResult}
-import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
 
 import scala.concurrent.Future
@@ -32,7 +29,7 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef)
     implicit val scheduler: Scheduler = system.scheduler
 
     val f: Future[InspectableActorsResponse] =
-      (actorInspectorManager ? QueryableActorsRequest).mapTo[InspectableActorsResponse]
+      (actorInspectorManager ? InspectableActorsRequest).mapTo[InspectableActorsResponse]
     f.map(r => grpc.QueryableActorsResponse(r.queryable.toSeq))
   }
 
@@ -90,7 +87,12 @@ object ActorInspectorImpl {
    * An [[ActorRef]] that can be inspected.
    */
   sealed abstract case class InspectableActorRef(ref: ActorRef)
-  private object InspectableActorRef {
-    def apply(ref: ActorRef): InspectableActorRef = new InspectableActorRef(ref) {}
+  object InspectableActorRef {
+    private[inspection] def apply(ref: ActorRef): InspectableActorRef = new InspectableActorRef(ref) {}
+
+    sealed abstract class BackPressureSignal extends Product with Serializable
+    final case object Init extends BackPressureSignal
+    final case object Ack extends BackPressureSignal
+    final case object Complete extends BackPressureSignal
   }
 }

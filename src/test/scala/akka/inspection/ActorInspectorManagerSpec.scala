@@ -6,7 +6,6 @@ import akka.inspection.ActorInspectorImpl.InspectableActorRef
 import akka.inspection.ActorInspectorManager.Groups.Group
 import akka.inspection.ActorInspectorManager._
 import akka.testkit.{ImplicitSender, TestKit}
-import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 class ActorInspectorManagerSpec

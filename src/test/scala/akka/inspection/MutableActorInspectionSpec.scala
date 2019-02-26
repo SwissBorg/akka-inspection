@@ -13,7 +13,7 @@ import org.scalatest.{AsyncWordSpecLike, BeforeAndAfterAll, Matchers}
 import scala.concurrent.Future
 
 class MutableActorInspectionSpec
-    extends TestKit(ActorSystem("ActorInspectorManagerSpec", MutableActorInspectionSpec.testConfig))
+    extends TestKit(ActorSystem("MutableActorInspectionSpec", MutableActorInspectionSpec.testConfig))
     with ImplicitSender
     with AsyncWordSpecLike
     with Matchers
@@ -23,7 +23,7 @@ class MutableActorInspectionSpec
   "MutableActorInspectionSpec" must {
     "correctly render the fragments" in {
       val inspector = ActorInspector(system)
-      val inspectableRef = InspectableActorRef(system.actorOf(Props[TestActor]))
+      val inspectableRef = InspectableActorRef(system.actorOf(Props[MutableActor]))
 
       val m = ActorInspectorManager.FragmentsRequest(List(FragmentId("yes")), inspectableRef.toId).toGRPC
       val expectedFragment0 = Map(FragmentId("yes") -> RenderedFragment("0"))
@@ -47,10 +47,6 @@ class MutableActorInspectionSpec
 
       res.fold(assert(false))(identity)
     }
-
-//    "bla" in {
-//      val inspector = ActorInspector(system)
-//    }
   }
 
   override def afterAll: Unit =
@@ -60,11 +56,7 @@ class MutableActorInspectionSpec
 object MutableActorInspectionSpec {
   implicit val intShow: Render[Int] = (t: Int) => t.toString
 
-  class NopActor extends Actor {
-    override def receive: Receive = { case a => println(a) }
-  }
-
-  class TestActor extends Actor with MutableActorInspection {
+  class MutableActor extends Actor with MutableActorInspection {
     var i: Int = 0
 
     override def receive: Receive = withInspection {
@@ -75,24 +67,6 @@ object MutableActorInspectionSpec {
       FragmentId("yes") -> Fragment.always(i)
     }
   }
-
-//  class StatelessActor extends Actor with ActorInspection[StatelessActor.State] {
-//    override def receive: Receive = mainReceive(StatelessActor.State(0))
-//
-//    def mainReceive(s: StatelessActor.State): Receive = withInspection(s) {
-//      case _ =>
-//        println("HEERREE")
-//        context.become(mainReceive(s.copy(i = s.i + 1)))
-//    }
-//
-//    override def stateFragments: Map[FragmentId, Fragment] = Map {
-//      FragmentId("yes") -> Fragment.state(s => s.i)
-//    }
-//  }
-
-//  object StatelessActor {
-//    case class State(i: Int)
-//  }
 
   val testConfig: Config = ConfigFactory
     .parseString {

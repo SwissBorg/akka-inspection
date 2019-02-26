@@ -64,7 +64,7 @@ object ActorInspectorImpl {
    * An [[ActorRef]] that can be inspected.
    */
   sealed abstract case class InspectableActorRef(ref: ActorRef) {
-    val toId: String = ref.path.address.toString
+    val toId: String = ref.path.address.toString // TODO render?
   }
 
   object InspectableActorRef {

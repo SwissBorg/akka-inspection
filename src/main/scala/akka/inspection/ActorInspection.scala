@@ -26,18 +26,18 @@ trait ActorInspection[S] extends Actor {
   /**
    * @see [[ActorInspection.FragmentId]]
    */
-  type StateFragmentId = ActorInspection.FragmentId
+  type FragmentId = ActorInspection.FragmentId
 
   /**
-   * @see [[ActorInspection.StateFragment]]
+   * @see [[ActorInspection.Fragment]]
    */
-  type StateFragment = ActorInspection.StateFragment[S]
-  val StateFragment = new StateFragmentPartiallyApplied[S]()
+  type Fragment = ActorInspection.StateFragment[S]
+  val Fragment = new StateFragmentPartiallyApplied[S]()
 
   /**
-   * [[StateFragment]]s given their id.
+   * [[Fragment]]s given their id.
    */
-  def stateFragments: Map[StateFragmentId, StateFragment]
+  def stateFragments: Map[FragmentId, Fragment]
 
   /**
    * The groups in which the actor is a member.
@@ -66,7 +66,7 @@ trait ActorInspection[S] extends Actor {
     replyTo ! req.fragmentIds.foldLeft(FragmentsResponse(req.initiator)) {
       case (response, id) =>
         response.copy(
-          fragments = response.fragments + (id -> stateFragments.getOrElse(id, StateFragment.undefined).run(s))
+          fragments = response.fragments + (id -> stateFragments.getOrElse(id, Fragment.undefined).run(s))
         )
     }
 

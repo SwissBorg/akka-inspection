@@ -1,12 +1,12 @@
 package akka.inspection
 
 import akka.actor.{Actor, ActorSystem, Props}
-import akka.inspection.ActorInspection._
+import akka.inspection.ActorInspection.FragmentId
 import akka.inspection.ActorInspectorImpl.InspectableActorRef
 import akka.inspection.ActorInspectorManager.Groups.Group
 import akka.inspection.ActorInspectorManager._
-import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import cats.Show
+import akka.testkit.{ImplicitSender, TestKit}
+import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 class ActorInspectorManagerSpec
@@ -26,7 +26,7 @@ class ActorInspectorManagerSpec
 
       inspectorRef ! Put(dummyRef, Set.empty, groups)
       inspectorRef ! GroupsRequest(dummyRef.toId)
-      expectMsg(GroupsResponse(Right(groups)))
+      expectMsg(GroupsResponse(Right(groups.toList)))
     }
 
     "handle a an empty string as a valid group name" in {
@@ -37,7 +37,7 @@ class ActorInspectorManagerSpec
 
       inspectorRef ! Put(dummyRef, Set.empty, groups)
       inspectorRef ! GroupsRequest(dummyRef.toId)
-      expectMsg(GroupsResponse(Right(groups)))
+      expectMsg(GroupsResponse(Right(groups.toList)))
     }
 
     "add groups to an actor in multiple steps" in {
@@ -50,7 +50,7 @@ class ActorInspectorManagerSpec
       inspectorRef ! Put(dummyRef, Set.empty, helloGroups)
       inspectorRef ! Put(dummyRef, Set.empty, worldGroups)
       inspectorRef ! GroupsRequest(dummyRef.toId)
-      expectMsg(GroupsResponse(Right(helloGroups ++ worldGroups)))
+      expectMsg(GroupsResponse(Right(helloGroups.toList ++ worldGroups.toList)))
     }
 
     "fail when requesting the groups of an undeclared actor" in {
@@ -89,19 +89,12 @@ class ActorInspectorManagerSpec
       expectMsg(FragmentIdsResponse(Left(ActorNotInspectable(dummyRef.toId))))
     }
 
-    "bla" in {
-      val testRef = system.actorOf(Props[TestActor])
-      val initiatorProbe = TestProbe()
-      val testProbe = TestProbe()
-      testRef ! FragmentsRequest(Set(FragmentId("yes")), testProbe.ref, initiatorProbe.ref)
-
-      testProbe.expectMsg(
-        FragmentsResponse(Map(FragmentId("yes") -> RenderedFragment("0")), initiatorProbe.ref)
-      )
-
-      initiatorProbe.expectNoMessage()
-    }
-
+//    "inspect an actor that has been declared" in {
+//      val inspector = ActorInspector(system)
+//      val dummyRef = InspectableActorRef(system.actorOf(Props[DummyInspectableActor]))
+//
+//      inspector.
+//    }
   }
 
   override def afterAll: Unit =
@@ -109,45 +102,53 @@ class ActorInspectorManagerSpec
 }
 
 object ActorInspectorManagerSpec {
-  implicit val intShow: Show[Int] = (t: Int) => t.toString
-
   class NopActor extends Actor {
-    override def receive: Receive = { case a => println(a) }
+    override def receive: Receive = { case _ => () }
   }
 
-  class TestActor extends Actor with MutableActorInspection {
-    var i: Int = 0
+//  class DummyInspectableActor extends Actor with MutableActorInspection {
+//    override def receive: Receive = { case _ => () }
+//    override def stateFragments: Map[FragmentId, Fragment] = Map {
+//      FragmentId("yes") -> Fragment.fix("yes")
+//    }
+//  }
 
-    override def receive: Receive = withInspection {
-      case _ => i += 1
-    }
+//  val testConfig: Config = ConfigFactory
+//    .parseString {
+//      """
+//        |akka {
+//        | // loglevel= "DEBUG"
+//        |
+//        |  actor {
+//        |    provider = cluster
+//        |  }
+//        |
+//        |  remote {
+//        |    netty.tcp {
+//        |      hostname = "127.0.0.1"
+//        |      port = 2551
+//        |    }
+//        |    artery {
+//        |      # change this to enabled=on to use Artery instead of netty
+//        |      # see https://doc.akka.io/docs/akka/current/remoting-artery.html
+//        |      enabled = off
+//        |      transport = tcp
+//        |      canonical.hostname = "127.0.0.1"
+//        |      canonical.port = 0
+//        |    }
+//        |  }
+//        |
+//        |  cluster {
+//        |    seed-nodes = ["akka.tcp://ActorInspectorManagerSpec@127.0.0.1:2551"]
+//        |
+//        |    # auto downing is NOT safe for production deployments.
+//        |    # you may want to use it during development, read more about it in the docs.
+//        |    auto-down-unreachable-after = 10s
+//        |  }
+//        |}
+//        |
+//    """.stripMargin
+//    }
+//    .withFallback(ConfigFactory.load())
 
-    /**
-     * Description of how to generate [[StateFragment]]s given the state `s`.
-     *
-     * @param s the actor's state.
-     * @return mapping from
-     */
-    override def stateFragments: Map[StateFragmentId, StateFragment] = Map {
-      FragmentId("yes") -> StateFragment(5)
-    }
-  }
-
-  class StatelessActor extends Actor with ActorInspection[StatelessActor.State] {
-    override def receive: Receive = mainReceive(StatelessActor.State(0))
-
-    def mainReceive(s: StatelessActor.State): Receive = withInspection(s) {
-      case _ =>
-        println("HEERREE")
-        context.become(mainReceive(s.copy(i = s.i + 1)))
-    }
-
-    override def stateFragments: Map[StateFragmentId, StateFragment] = Map {
-      FragmentId("yes") -> StateFragment.state(_.i)
-    }
-  }
-
-  object StatelessActor {
-    case class State(i: Int)
-  }
 }

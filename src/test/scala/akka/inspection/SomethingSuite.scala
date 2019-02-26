@@ -19,11 +19,11 @@ class SomethingSuite
   "foo" in {
     val inspector = ActorInspector(system)
 
-    val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
+    val inspectableRef = InspectableActorRef(system.actorOf(Props[TestActor]))
     val initiatorProbe = TestProbe()
     val replyToProbe = TestProbe()
 
-    val requests = Set(StateFragmentId("yes"))
+    val requests = Set(FragmentId("yes"))
 
     val m = grpc.StateFragmentsRequest("0", inspectableRef.toId, List("yes"))
     val expectedFragment0 = Map("yes" -> "0")
@@ -41,6 +41,7 @@ class SomethingSuite
           case _ => false
         }
 
+      _ = println(res1)
       _ = inspectableRef.ref ! 42
 
       res2 <- inspector
@@ -53,6 +54,7 @@ class SomethingSuite
             fragments == expectedFragment1
           case _ => false
         }
+      _ = println(res2)
     } yield assert(res1 && res2)
   }
 
@@ -74,14 +76,8 @@ object SomethingSuite {
       case _ => i += 1
     }
 
-    /**
-     * Description of how to generate [[StateFragment]]s given the state `s`.
-     *
-     * @param s the actor's state.
-     * @return mapping from
-     */
     override val stateFragments: Map[StateFragmentId, StateFragment] = Map {
-      StateFragmentId("yes") -> StateFragment(i)
+      FragmentId("yes") -> StateFragment.always(i)
     }
   }
 
@@ -95,7 +91,7 @@ object SomethingSuite {
     }
 
     override def stateFragments: Map[StateFragmentId, StateFragment] = Map {
-      StateFragmentId("yes") -> StateFragment.state(s => s.i)
+      FragmentId("yes") -> StateFragment.state(s => s.i)
     }
   }
 

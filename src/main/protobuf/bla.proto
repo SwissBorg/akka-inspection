@@ -7,63 +7,78 @@ option java_outer_classname = "ActorInspectionProto";
 package actorinspection;
 
 service ActorInspectionService {
-    rpc RequestQueryableActors (QueryableActorsRequest) returns (QueryableActorsResponse) {}
-    rpc RequestActorGroups (ActorGroupsRequest) returns (ActorGroupsResponse) {}
-    rpc RequestActorKeys (ActorKeysRequest) returns (ActorKeysResponse) {}
-    rpc RequestStateFragments (StateFragmentsRequest) returns (StateFragmentsResponse) {}
+    rpc RequestQueryableActors (InspectableActorsRequest) returns (InspectableActorsResponse) {}
+    rpc RequestGroups (GroupsRequest) returns (GroupsResponse) {}
+    rpc RequestFragmentIds (FragmentIdsRequest) returns (FragmentIdsResponse) {}
+    rpc RequestFragments (FragmentsRequest) returns (FragmentsResponse) {}
 }
 
-message QueryableActorsRequest {
-    string id = 1;
-}
-message QueryableActorsResponse {
-    repeated string queryable = 1;
+message InspectableActorsRequest {}
+message InspectableActorsResponse {
+    repeated string inspectable_actors = 1;
 }
 
 
-message ActorGroupsRequest {
-    string id = 1;
-    string actor = 2;
+message GroupsRequest {
+    string actor = 1;
 }
-message ActorGroupsResponse {
+message GroupsResponse {
     message Groups {
         repeated string names = 1;
     }
 
-    oneof groups_res {
-        Groups success = 1;
-        string failure = 2;
+    oneof res {
+        Groups groups = 1;
+        Error.ActorNotInspectable error = 2;
     }
 }
 
-message ActorKeysRequest {
-    string id = 1;
-    string actor = 2;
+message FragmentIdsRequest {
+    string actor = 1;
 }
-message ActorKeysResponse {
-    message Keys {
-        repeated string values = 1;
+message FragmentIdsResponse {
+    message FragmentIds {
+        repeated string ids = 1;
     }
 
-    oneof keys_res {
-        Keys success = 1;
-        string failure = 2;
+    oneof res {
+        FragmentIds fragment_ids = 1;
+        Error.ActorNotInspectable error = 2;
     }
 }
 
-message StateFragmentsRequest {
-    string id = 1;
-    string actor = 2;
-    repeated string fragment_ids = 3;
+message FragmentsRequest {
+    string actor = 1;
+    repeated string fragment_ids = 2;
 }
-message StateFragmentsResponse {
+message FragmentsResponse {
+    message Fragment {
+        oneof res {
+            string fragment = 1;
+        }
+    }
+
     message Fragments {
-        map<string, string> fragments = 1;
+        map<string, Fragment> fragments = 1;
     }
 
-    oneof fragments_res {
-        Fragments success = 1;
-        string failure = 2;
+    oneof res {
+        Fragments fragments = 1;
+        Error error = 2;
+    }
+}
+
+message Error {
+    message ActorNotInspectable {
+        string actor = 1;
+    }
+    message UnreachableInspectableActor {
+        string actor = 1;
+    }
+
+    oneof error {
+        ActorNotInspectable actor_not_inspectable = 1;
+        UnreachableInspectableActor unreachable_inspectable_actor = 2;
     }
 }
 

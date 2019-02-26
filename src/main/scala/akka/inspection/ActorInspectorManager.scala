@@ -1,11 +1,12 @@
 package akka.inspection
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import akka.inspection.ActorInspection.{FinalizedStateFragment0, StateFragment, StateFragmentId, StateFragmentResponse}
+import akka.inspection.ActorInspection._
 import akka.inspection.ActorInspectorImpl.InspectableActorRef
 import akka.inspection.ActorInspectorManager.Groups.Group
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{ActorMaterializer, Materializer, OverflowStrategy, QueueOfferResult}
+import monocle.{Iso, Prism}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -22,7 +23,7 @@ class ActorInspectorManager extends Actor with ActorLogging {
 
   override def receive: Receive = statefulReceive(State.empty)
 
-  private def statefulReceive(s: State[ActorInspection.StateFragmentRequest]): Receive =
+  private def statefulReceive(s: State[ActorInspection.FragmentsRequest]): Receive =
     fragmentRequests(s).orElse(subscriptionRequests(s)).orElse(infoRequests(s))
 
   /**
@@ -31,44 +32,41 @@ class ActorInspectorManager extends Actor with ActorLogging {
    * Note: the caller expects a reply of type
    * `Either[ActorInspectorManager.Error, Map[StateFragmentId, FinalizedStateFragment0]`.
    */
-  private def fragmentRequests(s: State[ActorInspection.StateFragmentRequest]): Receive = {
-    case s0 @ StateFragmentsRequest(fragments, id) =>
-      log.debug(s0.toString)
-
+  private def fragmentRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {
+    case FragmentsRequest(fragments, id) =>
       val initiator = sender()
-      s.offer(ActorInspection.StateFragmentRequest(fragments, self, initiator), id) match {
+      s.offer(ActorInspection.FragmentsRequest(fragments, self, initiator), id) match {
         case Right(m) =>
           m.foreach {
             case QueueOfferResult.Enqueued => () // inspectable actor will receive the request
 
             case QueueOfferResult.Dropped =>
-              initiator ! StateFragmentsResponse.Failure(UnreachableInspectableActor(id))
+              initiator ! FragmentsResponse(Left(UnreachableInspectableActor(id)))
 
             case _: QueueOfferResult.Failure =>
-              initiator ! StateFragmentsResponse.Failure(UnreachableInspectableActor(id))
+              initiator ! FragmentsResponse(Left(UnreachableInspectableActor(id)))
 
             case QueueOfferResult.QueueClosed =>
-              initiator ! StateFragmentsResponse.Failure(UnreachableInspectableActor(id))
+              initiator ! FragmentsResponse(Left(UnreachableInspectableActor(id)))
           }
 
-        case Left(err) => initiator ! StateFragmentsResponse.Failure(err)
+        case Left(err) => initiator ! FragmentsResponse(Left(err))
       }
 
-    case s @ StateFragmentResponse(fragments, initiator) =>
-      log.debug(s.toString)
-      initiator ! StateFragmentsResponse.Success(fragments)
+    case ActorInspection.FragmentsResponse(fragments, initiator) =>
+      initiator ! FragmentsResponse(Right(fragments))
   }
 
-  def subscriptionRequests(s: State[ActorInspection.StateFragmentRequest]): Receive = {
+  def subscriptionRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {
     case Put(ref, keys0, groups0) => context.become(statefulReceive(s.put(ref, keys0, groups0)))
     case Release(ref)             => context.become(statefulReceive(s.release(ref)))
   }
 
-  def infoRequests(s: State[ActorInspection.StateFragmentRequest]): Receive = {
-    case InspectableActorsRequest    => sender() ! InspectableActorsResponse(s.inspectableActorIds)
-    case ActorGroupsRequest(id)      => sender() ! ActorGroupsResponse(s.groups(id))
-    case StateFragmentIdsRequest(id) => sender() ! StateFragmentIdsResponse(s.stateFragmentIds(id))
-    case GroupRequest(group)         => sender() ! GroupResponse(s.inGroup(group))
+  def infoRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {
+    case InspectableActorsRequest => sender() ! InspectableActorsResponse(s.inspectableActorIds.toList)
+    case GroupsRequest(id)        => sender() ! GroupsResponse(s.groups(id).map(_.toList))
+    case FragmentIdsRequest(id)   => sender() ! FragmentIdsResponse(s.stateFragmentIds(id).map(_.toList))
+    case GroupRequest(group)      => sender() ! GroupResponse(s.inGroup(group))
   }
 }
 
@@ -79,7 +77,7 @@ object ActorInspectorManager {
     private val groups: Groups,
     private val sourceQueues: SourceQueues[M]
   )(implicit context: ExecutionContext, materializer: Materializer) {
-    def put(ref: InspectableActorRef, keys: Set[StateFragmentId], groups: Set[Group]): State[M] =
+    def put(ref: InspectableActorRef, keys: Set[FragmentId], groups: Set[Group]): State[M] =
       copy(
         inspectableActors = inspectableActors.add(ref),
         stateFragments = this.stateFragments.addStateFragment(ref, keys),
@@ -107,7 +105,7 @@ object ActorInspectorManager {
 
     def inGroup(g: Group): Set[InspectableActorRef] = groups.inGroup(g)
 
-    def stateFragmentIds(id: String): Either[ActorNotInspectable, Set[StateFragmentId]] =
+    def stateFragmentIds(id: String): Either[ActorNotInspectable, Set[FragmentId]] =
       inspectableActors.fromId(id).map(stateFragments.stateFragmentsIds)
   }
 
@@ -168,12 +166,11 @@ object ActorInspectorManager {
   /**
    * Manages the state-fragments of each inspectable actor.
    */
-  final case class StateFragments(private val fragmentIds: Map[InspectableActorRef, Set[StateFragmentId]])
-      extends AnyVal {
-    def addStateFragment(ref: InspectableActorRef, keys: Set[StateFragmentId]): StateFragments =
+  final case class StateFragments(private val fragmentIds: Map[InspectableActorRef, Set[FragmentId]]) extends AnyVal {
+    def addStateFragment(ref: InspectableActorRef, keys: Set[FragmentId]): StateFragments =
       copy(fragmentIds = this.fragmentIds + (ref -> keys))
     def remove(ref: InspectableActorRef): StateFragments = copy(fragmentIds = fragmentIds - ref)
-    def stateFragmentsIds(ref: InspectableActorRef): Set[StateFragmentId] = fragmentIds.getOrElse(ref, Set.empty)
+    def stateFragmentsIds(ref: InspectableActorRef): Set[FragmentId] = fragmentIds.getOrElse(ref, Set.empty)
   }
 
   object StateFragments {
@@ -206,26 +203,166 @@ object ActorInspectorManager {
 
   sealed abstract class Event extends Product with Serializable
 
-  final case class Put(ref: InspectableActorRef, keys: Set[StateFragmentId], groups: Set[Group]) extends Event
+  final case class Put(ref: InspectableActorRef, keys: Set[FragmentId], groups: Set[Group]) extends Event
   final case class Release(ref: InspectableActorRef) extends Event
 
   final case object InspectableActorsRequest extends Event
-  final case class InspectableActorsResponse(queryable: Set[String]) extends Event
 
-  final case class ActorGroupsRequest(path: String) extends Event
-  final case class ActorGroupsResponse(group: Either[ActorNotInspectable, Set[Group]]) extends Event
+  final case class InspectableActorsResponse(inspectable: List[String]) extends Event {
+    val toGRPC: grpc.InspectableActorsResponse = InspectableActorsResponse.grpcIso(this)
+  }
+  object InspectableActorsResponse {
+    def fromGRPC(r: grpc.InspectableActorsResponse): InspectableActorsResponse = grpcIso.get(r)
+
+    val grpcIso: Iso[grpc.InspectableActorsResponse, InspectableActorsResponse] =
+      Iso[grpc.InspectableActorsResponse, InspectableActorsResponse](
+        r => InspectableActorsResponse(r.inspectableActors.toList)
+      )(r => grpc.InspectableActorsResponse(r.inspectable))
+  }
+
+  final case class GroupsRequest(path: String) extends Event {
+    val toGRPC: grpc.GroupsRequest = GroupsRequest.grpcIso(this)
+  }
+  object GroupsRequest {
+    def fromGRPC(r: grpc.GroupsRequest): GroupsRequest = grpcIso.get(r)
+
+    val grpcIso: Iso[grpc.GroupsRequest, GroupsRequest] =
+      Iso[grpc.GroupsRequest, GroupsRequest](r => GroupsRequest(r.actor))(r => grpc.GroupsRequest(r.path))
+  }
+
+  final case class GroupsResponse(group: Either[ActorNotInspectable, List[Group]]) extends Event {
+    val toGRPC: grpc.GroupsResponse = GroupsResponse.grpcPrism(this)
+  }
+
+  object GroupsResponse {
+    def fromGRPC(r: grpc.GroupsResponse): Option[GroupsResponse] = grpcPrism.getOption(r)
+
+    val grpcPrism: Prism[grpc.GroupsResponse, GroupsResponse] =
+      Prism.partial[grpc.GroupsResponse, GroupsResponse] {
+        case grpc.GroupsResponse(grpc.GroupsResponse.Res.Groups(grpc.GroupsResponse.Groups(groups))) =>
+          GroupsResponse(Right(groups.map(Group).toList))
+        case grpc.GroupsResponse(grpc.GroupsResponse.Res.Error(grpc.Error.ActorNotInspectable(id))) =>
+          GroupsResponse(Left(ActorNotInspectable(id)))
+      } {
+        case GroupsResponse(Right(groups)) =>
+          grpc.GroupsResponse(grpc.GroupsResponse.Res.Groups(grpc.GroupsResponse.Groups(groups.map(_.name))))
+        case GroupsResponse(Left(ActorNotInspectable(id))) =>
+          grpc.GroupsResponse(grpc.GroupsResponse.Res.Error(grpc.Error.ActorNotInspectable(id)))
+      }
+  }
 
   final case class GroupRequest(group: Group) extends Event
   final case class GroupResponse(paths: Set[InspectableActorRef]) extends Event
 
-  final case class StateFragmentIdsRequest(path: String) extends Event
-  final case class StateFragmentIdsResponse(keys: Either[ActorNotInspectable, Set[StateFragmentId]]) extends Event
+  final case class FragmentIdsRequest(path: String) extends Event {
+    val toGRPC: grpc.FragmentIdsRequest = FragmentIdsRequest.grpcIso(this)
+  }
+  object FragmentIdsRequest {
+    def fromGRPC(r: grpc.FragmentIdsRequest): FragmentIdsRequest = grpcIso.get(r)
 
-  final case class StateFragmentsRequest(fragmentIds: Set[StateFragmentId], id: String) extends Event
-  sealed abstract class StateFragmentsResponse extends Event
-  object StateFragmentsResponse {
-    final case class Success(fragments: Map[StateFragmentId, FinalizedStateFragment0]) extends StateFragmentsResponse
-    final case class Failure(error: Error) extends StateFragmentsResponse
+    val grpcIso: Iso[grpc.FragmentIdsRequest, FragmentIdsRequest] =
+      Iso[grpc.FragmentIdsRequest, FragmentIdsRequest](r => FragmentIdsRequest(r.actor))(
+        r => grpc.FragmentIdsRequest(r.path)
+      )
+  }
+
+  final case class FragmentIdsResponse(keys: Either[ActorNotInspectable, List[FragmentId]]) extends Event {
+    val toGRPC: grpc.FragmentIdsResponse = FragmentIdsResponse.grpcPrism(this)
+  }
+  object FragmentIdsResponse {
+    def fromGRPC(r: grpc.FragmentIdsResponse): Option[FragmentIdsResponse] = grpcPrism.getOption(r)
+
+    def grpcPrism: Prism[grpc.FragmentIdsResponse, FragmentIdsResponse] =
+      Prism.partial[grpc.FragmentIdsResponse, FragmentIdsResponse] {
+        case grpc.FragmentIdsResponse(
+            grpc.FragmentIdsResponse.Res.FragmentIds(grpc.FragmentIdsResponse.FragmentIds(ids))
+            ) =>
+          FragmentIdsResponse(Right(ids.map(FragmentId).toList))
+
+        case grpc.FragmentIdsResponse(
+            grpc.FragmentIdsResponse.Res.Error(grpc.Error.ActorNotInspectable(id))
+            ) =>
+          FragmentIdsResponse(Left(ActorNotInspectable(id)))
+      } {
+        case FragmentIdsResponse(Right(fragmentIds)) =>
+          grpc.FragmentIdsResponse(
+            grpc.FragmentIdsResponse.Res.FragmentIds(grpc.FragmentIdsResponse.FragmentIds(fragmentIds.map(_.id)))
+          )
+
+        case FragmentIdsResponse(Left(ActorNotInspectable(id))) =>
+          grpc.FragmentIdsResponse(grpc.FragmentIdsResponse.Res.Error(grpc.Error.ActorNotInspectable(id)))
+      }
+  }
+
+  final case class FragmentsRequest(fragmentIds: List[FragmentId], id: String) extends Event {
+    def toGRPC: grpc.FragmentsRequest = FragmentsRequest.grpcIso(this)
+  }
+  object FragmentsRequest {
+    def fromGRPC(r: grpc.FragmentsRequest): FragmentsRequest = grpcIso.get(r)
+
+    val grpcIso: Iso[grpc.FragmentsRequest, FragmentsRequest] =
+      Iso[grpc.FragmentsRequest, FragmentsRequest](
+        r => FragmentsRequest(r.fragmentIds.map(FragmentId).toList, r.actor)
+      )(
+        r => grpc.FragmentsRequest(r.id, r.fragmentIds.map(_.id))
+      )
+  }
+
+  final case class FragmentsResponse(fragments: Either[Error, Map[FragmentId, FinalizedFragment]]) extends Event {
+    val toGRPC: grpc.FragmentsResponse = FragmentsResponse.grpcPrism(this)
+  }
+  object FragmentsResponse {
+    def fromGRPC(r: grpc.FragmentsResponse): Option[FragmentsResponse] = grpcPrism.getOption(r)
+
+    val grpcPrism: Prism[grpc.FragmentsResponse, FragmentsResponse] =
+      Prism.partial[grpc.FragmentsResponse, FragmentsResponse] {
+        case grpc.FragmentsResponse(
+            grpc.FragmentsResponse.Res.Fragments(grpc.FragmentsResponse.Fragments(fragments))
+            ) =>
+          FragmentsResponse(Right(fragments.map {
+            case (k, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Fragment(f))) =>
+              (FragmentId(k), RenderedFragment(f))
+            case (k, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Empty)) =>
+              (FragmentId(k), UndefinedFragment)
+          }))
+        case grpc.FragmentsResponse(
+            grpc.FragmentsResponse.Res.Error(
+              grpc
+                .Error(grpc.Error.Error.ActorNotInspectable(grpc.Error.ActorNotInspectable(id)))
+            )
+            ) =>
+          FragmentsResponse(Left(ActorNotInspectable(id)))
+
+        case grpc.FragmentsResponse(
+            grpc.FragmentsResponse.Res.Error(
+              grpc
+                .Error(grpc.Error.Error.UnreachableInspectableActor(grpc.Error.UnreachableInspectableActor(id)))
+            )
+            ) =>
+          FragmentsResponse(Left(UnreachableInspectableActor(id)))
+      } {
+        case FragmentsResponse(Right(fragments)) =>
+          grpc.FragmentsResponse(grpc.FragmentsResponse.Res.Fragments(grpc.FragmentsResponse.Fragments(fragments.map {
+            case (k, UndefinedFragment) =>
+              (k.id, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Empty))
+            case (k, RenderedFragment(fragment)) =>
+              (k.id, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Fragment(fragment)))
+          })))
+        case FragmentsResponse(Left(err)) =>
+          err match {
+            case ActorNotInspectable(id) =>
+              grpc.FragmentsResponse(
+                grpc.FragmentsResponse.Res
+                  .Error(grpc.Error(grpc.Error.Error.ActorNotInspectable(grpc.Error.ActorNotInspectable(id))))
+              )
+            case UnreachableInspectableActor(id) =>
+              grpc.FragmentsResponse(
+                grpc.FragmentsResponse.Res.Error(
+                  grpc.Error(grpc.Error.Error.UnreachableInspectableActor(grpc.Error.UnreachableInspectableActor(id)))
+                )
+              )
+          }
+      }
   }
 
   final case class StateRequest(ref: ActorRef) extends Event

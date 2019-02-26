@@ -3,11 +3,15 @@ package akka.inspection
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.inspection.ActorInspection._
 import akka.inspection.ActorInspectorImpl.InspectableActorRef
-import akka.inspection.util.Render
+import akka.inspection.ActorInspectorManager.Put
+import akka.inspection.util.{LazyFuture, Render}
 import akka.testkit.{ImplicitSender, TestKit}
+import cats.{Applicative, Monad}
 import cats.data.OptionT
 import cats.implicits._
 import com.typesafe.config.{Config, ConfigFactory}
+import org.scalatest.concurrent.Eventually
+import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.{AsyncWordSpecLike, BeforeAndAfterAll, Matchers}
 
 import scala.concurrent.Future
@@ -17,40 +21,39 @@ class MutableActorInspectionSpec
     with ImplicitSender
     with AsyncWordSpecLike
     with Matchers
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll
+    with Eventually {
   import MutableActorInspectionSpec._
 
   "MutableActorInspectionSpec" must {
-    "correctly render the fragments" in {
+    "Observe state change" in {
       val inspector = ActorInspector(system)
+
       val inspectableRef = InspectableActorRef(system.actorOf(Props[MutableActor]))
 
       val m = ActorInspectorManager.FragmentsRequest(List(FragmentId("yes")), inspectableRef.toId).toGRPC
-      val expectedFragment0 = Map(FragmentId("yes") -> RenderedFragment("0"))
       val expectedFragment1 = Map(FragmentId("yes") -> RenderedFragment("1"))
 
-      val res = for {
-        r <- OptionT.liftF(inspector.requestFragments(m))
-        res1 <- OptionT.fromOption[Future](ActorInspectorManager.FragmentsResponse.fromGRPC(r).map {
-          case ActorInspectorManager.FragmentsResponse(Right(fragments)) => fragments == expectedFragment0
-          case _                                                         => false
-        })
+      inspectableRef.ref ! 42
 
-        _ = inspectableRef.ref ! 42
+      val f = for {
+        response <- OptionT.liftF(LazyFuture(() => inspector.requestFragments(m)))
+        response <- OptionT.fromOption[LazyFuture](ActorInspectorManager.FragmentsResponse.fromGRPC(response))
+        assertion = response match {
+          case ActorInspectorManager.FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment1)
+          case r                                                         => assert(false, r)
+        }
+      } yield assertion
 
-        r <- OptionT.liftF(inspector.requestFragments(m))
-        res2 <- OptionT.fromOption[Future](ActorInspectorManager.FragmentsResponse.fromGRPC(r).map {
-          case ActorInspectorManager.FragmentsResponse(Right(fragments)) => fragments == expectedFragment1
-          case _                                                         => false
-        })
-      } yield assert(res1 && res2)
+      f.map(eventually(_)).fold(assert(false))(identity).run
 
-      res.fold(assert(false))(identity)
     }
   }
 
-  override def afterAll: Unit =
-    TestKit.shutdownActorSystem(system)
+  implicit override val patienceConfig =
+    PatienceConfig(timeout = scaled(Span(10, Seconds)), interval = scaled(Span(5, Millis)))
+
+  override def afterAll: Unit = TestKit.shutdownActorSystem(system)
 }
 
 object MutableActorInspectionSpec {
@@ -94,7 +97,7 @@ object MutableActorInspectionSpec {
         |  }
         |
         |  cluster {
-        |    seed-nodes = ["akka.tcp://ActorInspectorManagerSpec@127.0.0.1:2551"]
+        |    seed-nodes = ["akka.tcp://MutableActorInspectionSpec@127.0.0.1:2551"]
         |
         |    # auto downing is NOT safe for production deployments.
         |    # you may want to use it during development, read more about it in the docs.

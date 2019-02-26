@@ -22,6 +22,7 @@ libraryDependencies ++= Seq(
   "com.github.julien-truffaut" %% "monocle-law" % monocleVersion % Test,
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
   "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % Test,
+  "org.typelevel" %% "cats-testkit" % "1.1.0" % Test,
   "org.scalatest" %% "scalatest" % scalatestVersion % Test
 )
 
@@ -33,3 +34,5 @@ javaAgents += "org.mortbay.jetty.alpn" % "jetty-alpn-agent" % "2.0.9" % "runtime
 lazy val root = (project in file("."))
   .enablePlugins(MultiJvmPlugin)
   .configs(MultiJvm)
+
+parallelExecution in Test := false

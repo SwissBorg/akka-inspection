@@ -35,22 +35,36 @@ class ActorInspectorManager extends Actor with ActorLogging {
   private def fragmentRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {
     case FragmentsRequest(fragments, id) =>
       val initiator = sender()
-      s.offer(ActorInspection.FragmentsRequest(fragments, self, initiator), id) match {
+      println(s"Request: $id")
+      println(s)
+      val m = s.offer(ActorInspection.FragmentsRequest(fragments, self, initiator), id)
+//      println(m)
+      m match {
         case Right(m) =>
           m.foreach {
-            case QueueOfferResult.Enqueued => () // inspectable actor will receive the request
+            case QueueOfferResult.Enqueued =>
+              println("1")
+              () // inspectable actor will receive the request
 
             case QueueOfferResult.Dropped =>
+              println("2")
+
               initiator ! FragmentsResponse(Left(UnreachableInspectableActor(id)))
 
             case _: QueueOfferResult.Failure =>
+              println("3")
+
               initiator ! FragmentsResponse(Left(UnreachableInspectableActor(id)))
 
             case QueueOfferResult.QueueClosed =>
+              println("4")
+
               initiator ! FragmentsResponse(Left(UnreachableInspectableActor(id)))
           }
 
-        case Left(err) => initiator ! FragmentsResponse(Left(err))
+        case Left(err) =>
+          println("5")
+          initiator ! FragmentsResponse(Left(err))
       }
 
     case ActorInspection.FragmentsResponse(fragments, initiator) =>
@@ -58,7 +72,12 @@ class ActorInspectorManager extends Actor with ActorLogging {
   }
 
   def subscriptionRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {
-    case Put(ref, keys0, groups0) => context.become(statefulReceive(s.put(ref, keys0, groups0)))
+    case p@Put(ref, keys0, groups0) =>
+      println(s)
+      println(p)
+      val s0 = s.put(ref, keys0, groups0)
+      println(s0)
+      context.become(statefulReceive(s0))
     case Release(ref)             => context.become(statefulReceive(s.release(ref)))
   }
 

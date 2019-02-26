@@ -7,7 +7,7 @@ option java_outer_classname = "ActorInspectionProto";
 package actorinspection;
 
 service ActorInspectionService {
-    rpc RequestQueryableActors (InspectableActorsRequest) returns (InspectableActorsResponse) {}
+    rpc RequestInspectableActors (InspectableActorsRequest) returns (InspectableActorsResponse) {}
     rpc RequestGroups (GroupsRequest) returns (GroupsResponse) {}
     rpc RequestFragmentIds (FragmentIdsRequest) returns (FragmentIdsResponse) {}
     rpc RequestFragments (FragmentsRequest) returns (FragmentsResponse) {}

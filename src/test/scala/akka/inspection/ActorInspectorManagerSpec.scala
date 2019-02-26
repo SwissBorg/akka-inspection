@@ -28,7 +28,7 @@ class ActorInspectorManagerSpec
       expectMsg(GroupsResponse(Right(groups.toList)))
     }
 
-    "handle a an empty string as a valid group name" in {
+    "handle an empty string as a valid group name" in {
       val inspectorRef = system.actorOf(Props[ActorInspectorManager])
       val dummyRef = InspectableActorRef(system.actorOf(Props[NopActor]))
 
@@ -104,50 +104,4 @@ object ActorInspectorManagerSpec {
   class NopActor extends Actor {
     override def receive: Receive = { case _ => () }
   }
-
-//  class DummyInspectableActor extends Actor with MutableActorInspection {
-//    override def receive: Receive = { case _ => () }
-//    override def stateFragments: Map[FragmentId, Fragment] = Map {
-//      FragmentId("yes") -> Fragment.fix("yes")
-//    }
-//  }
-
-//  val testConfig: Config = ConfigFactory
-//    .parseString {
-//      """
-//        |akka {
-//        | // loglevel= "DEBUG"
-//        |
-//        |  actor {
-//        |    provider = cluster
-//        |  }
-//        |
-//        |  remote {
-//        |    netty.tcp {
-//        |      hostname = "127.0.0.1"
-//        |      port = 2551
-//        |    }
-//        |    artery {
-//        |      # change this to enabled=on to use Artery instead of netty
-//        |      # see https://doc.akka.io/docs/akka/current/remoting-artery.html
-//        |      enabled = off
-//        |      transport = tcp
-//        |      canonical.hostname = "127.0.0.1"
-//        |      canonical.port = 0
-//        |    }
-//        |  }
-//        |
-//        |  cluster {
-//        |    seed-nodes = ["akka.tcp://ActorInspectorManagerSpec@127.0.0.1:2551"]
-//        |
-//        |    # auto downing is NOT safe for production deployments.
-//        |    # you may want to use it during development, read more about it in the docs.
-//        |    auto-down-unreachable-after = 10s
-//        |  }
-//        |}
-//        |
-//    """.stripMargin
-//    }
-//    .withFallback(ConfigFactory.load())
-
 }

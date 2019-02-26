@@ -20,8 +20,7 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef)
 
   def release(ref: ActorRef): Unit = actorInspectorManager ! Release(InspectableActorRef(ref))
 
-  // TODO should not be here. Should not be called from within an actor.
-  override def requestQueryableActors(in: grpc.InspectableActorsRequest): Future[grpc.InspectableActorsResponse] = {
+  override def requestInspectableActors(in: grpc.InspectableActorsRequest): Future[grpc.InspectableActorsResponse] = {
     import scala.concurrent.ExecutionContext.Implicits.global // TODO
 
     implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
@@ -30,7 +29,6 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef)
     (actorInspectorManager ? InspectableActorsRequest).mapTo[InspectableActorsResponse].map(_.toGRPC)
   }
 
-  // TODO should not be here. Should not be called from within an actor.
   override def requestGroups(in: grpc.GroupsRequest): Future[grpc.GroupsResponse] = {
     import scala.concurrent.ExecutionContext.Implicits.global // TODO
 
@@ -64,7 +62,7 @@ object ActorInspectorImpl {
    * An [[ActorRef]] that can be inspected.
    */
   sealed abstract case class InspectableActorRef(ref: ActorRef) {
-    val toId: String = ref.path.address.toString // TODO render?
+    val toId: String = ref.path.toString // TODO render?
   }
 
   object InspectableActorRef {

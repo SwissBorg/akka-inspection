@@ -11,32 +11,9 @@ import akka.util.Timeout
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
-class ActorInspectorServiceImpl(system: ActorSystem) extends grpc.ActorInspectionService {
-  private val manager = ActorInspector(system)
-
-  implicit val sys: ActorSystem = system
-  implicit val mat: Materializer = ActorMaterializer()
-  implicit val ec: ExecutionContext = sys.dispatcher
-  implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
-
-  override def requestInspectableActors(in: grpc.InspectableActorsRequest): Future[grpc.InspectableActorsResponse] =
-    manager.requestInspectableActors(in)
-
-  override def requestGroups(in: grpc.GroupsRequest): Future[grpc.GroupsResponse] = manager.requestGroups(in)
-
-  override def requestFragmentIds(in: grpc.FragmentIdsRequest): Future[grpc.FragmentIdsResponse] =
-    manager.requestFragmentIds(in)
-
-  override def requestFragments(in: grpc.FragmentsRequest): Future[grpc.FragmentsResponse] =
-    manager.requestFragments(in)
-}
-
 class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef) extends Extension {
   import ActorInspectorImpl._
 
-  implicit val sys: ActorSystem = system
-  implicit val mat: Materializer = ActorMaterializer()
-  implicit val ec: ExecutionContext = sys.dispatcher
   implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
 
   def put(ref: ActorRef, keys: Set[FragmentId], groups: Set[Group]): Unit =
@@ -44,17 +21,17 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef) e
 
   def release(ref: ActorRef): Unit = actorInspectorManager ! Release(InspectableActorRef(ref))
 
-  def requestInspectableActors(in: grpc.InspectableActorsRequest): Future[grpc.InspectableActorsResponse] =
-    (actorInspectorManager ? InspectableActorsRequest).mapTo[InspectableActorsResponse].map(_.toGRPC)
+  def requestInspectableActors(request: InspectableActorsRequest.type): Future[InspectableActorsResponse] =
+    (actorInspectorManager ? request).mapTo[InspectableActorsResponse]
 
-  def requestGroups(in: grpc.GroupsRequest): Future[grpc.GroupsResponse] =
-    (actorInspectorManager ? GroupsRequest.fromGRPC(in)).mapTo[GroupsResponse].map(_.toGRPC)
+  def requestGroups(request: GroupsRequest): Future[GroupsResponse] =
+    (actorInspectorManager ? request).mapTo[GroupsResponse]
 
-  def requestFragmentIds(in: grpc.FragmentIdsRequest): Future[grpc.FragmentIdsResponse] =
-    (actorInspectorManager ? FragmentIdsRequest.fromGRPC(in)).mapTo[FragmentIdsResponse].map(_.toGRPC)
+  def requestFragmentIds(request: FragmentIdsRequest): Future[FragmentIdsResponse] =
+    (actorInspectorManager ? request).mapTo[FragmentIdsResponse]
 
-  def requestFragments(in: grpc.FragmentsRequest): Future[grpc.FragmentsResponse] =
-    (actorInspectorManager ? FragmentsRequest.fromGRPC(in)).mapTo[FragmentsResponse].map(_.toGRPC)
+  def requestFragments(request: FragmentsRequest): Future[FragmentsResponse] =
+    (actorInspectorManager ? request).mapTo[FragmentsResponse]
 }
 
 object ActorInspectorImpl {

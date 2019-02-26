@@ -225,7 +225,16 @@ object ActorInspectorManager {
   final case class Put(ref: InspectableActorRef, keys: Set[FragmentId], groups: Set[Group]) extends Event
   final case class Release(ref: InspectableActorRef) extends Event
 
-  final case object InspectableActorsRequest extends Event
+  final case object InspectableActorsRequest extends Event {
+    def toGRPC: grpc.InspectableActorsRequest = grpcIso(this)
+
+    def fromGRPC(r: grpc.InspectableActorsRequest): InspectableActorsRequest.type = grpcIso.get(r)
+
+    val grpcIso: Iso[grpc.InspectableActorsRequest, InspectableActorsRequest.type] =
+      Iso[grpc.InspectableActorsRequest, InspectableActorsRequest.type](_ => InspectableActorsRequest)(
+        _ => grpc.InspectableActorsRequest()
+      )
+  }
 
   final case class InspectableActorsResponse(inspectable: List[String]) extends Event {
     val toGRPC: grpc.InspectableActorsResponse = InspectableActorsResponse.grpcIso(this)
@@ -271,6 +280,8 @@ object ActorInspectorManager {
   }
 
   final case class GroupRequest(group: Group) extends Event
+  object GroupRequest {}
+
   final case class GroupResponse(paths: Set[InspectableActorRef]) extends Event
 
   final case class FragmentIdsRequest(path: String) extends Event {

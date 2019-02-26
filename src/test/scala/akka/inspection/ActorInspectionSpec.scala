@@ -29,14 +29,13 @@ class ActorInspectionSpec
 
       val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
 
-      val m = ActorInspectorManager.FragmentsRequest(List(FragmentId("yes")), inspectableRef.toId).toGRPC
+      val m = ActorInspectorManager.FragmentsRequest(List(FragmentId("yes")), inspectableRef.toId)
       val expectedFragment1 = Map(FragmentId("yes") -> RenderedFragment("1"))
 
       inspectableRef.ref ! 42
 
       val f = for {
         response <- OptionT.liftF(LazyFuture(() => inspector.requestFragments(m)))
-        response <- OptionT.fromOption[LazyFuture](ActorInspectorManager.FragmentsResponse.fromGRPC(response))
         assertion = response match {
           case ActorInspectorManager.FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment1)
           case r                                                         => assert(false, r)

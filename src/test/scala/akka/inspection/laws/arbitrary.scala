@@ -1,11 +1,16 @@
 package akka.inspection.laws
 
 import akka.inspection.ActorInspection.FragmentId
-import akka.inspection.ActorInspectorManager.{ActorNotInspectable, FragmentIdsRequest, FragmentIdsResponse}
+import akka.inspection.ActorInspectorManager.{
+  ActorNotInspectable,
+  FragmentIdsRequest,
+  FragmentIdsResponse,
+  InspectableActorsRequest
+}
 import akka.inspection.grpc
 import org.scalacheck.Arbitrary.{arbEither, arbString, arbitrary => getArbitrary}
-import org.scalacheck.Cogen.{cogenEither, cogenString}
-import org.scalacheck.Gen.{const, oneOf}
+import org.scalacheck.Cogen._
+import org.scalacheck.Gen._
 import org.scalacheck.{Arbitrary, Cogen, Gen}
 import scalaz.Equal
 
@@ -53,9 +58,16 @@ object arbitrary {
 
   implicit val arbFragmentId: Arbitrary[FragmentId] = Arbitrary(arbString.arbitrary.map(FragmentId))
 
-  implicit val arbFragmentIdsReponse: Arbitrary[FragmentIdsResponse] = {
+  implicit val arbFragmentIdsReponse: Arbitrary[FragmentIdsResponse] =
     Arbitrary(arbEither[ActorNotInspectable, List[FragmentId]].arbitrary.map(a => FragmentIdsResponse(a)))
-  }
+
+  implicit val arbGRPCInspectableActorsRequest: Arbitrary[grpc.InspectableActorsRequest] = Arbitrary(
+    Gen.const(grpc.InspectableActorsRequest())
+  )
+
+  implicit val arbInspectableActorsRequest: Arbitrary[InspectableActorsRequest.type] = Arbitrary(
+    Gen.const(InspectableActorsRequest)
+  )
 
   /* --- Cogen instances --- */
   implicit val cogenFragmentIdsRequest: Cogen[FragmentIdsRequest] = Cogen.cogenString.contramap(_.path)
@@ -65,6 +77,9 @@ object arbitrary {
 
   implicit val cogenFragmentIdsReponse: Cogen[FragmentIdsResponse] =
     cogenEither[ActorNotInspectable, List[FragmentId]].contramap(_.keys)
+
+  implicit val cogenInspectableActorsRequest: Cogen[InspectableActorsRequest.type] =
+    cogenUnit.contramap(_ => InspectableActorsRequest)
 
   /* --- Equals instances --- */
   implicit val eqGRPCFragmentIdsRequest: Equal[grpc.FragmentIdsRequest] =
@@ -78,4 +93,10 @@ object arbitrary {
 
   implicit val eqGRPCFragmentIdsResponse: Equal[grpc.FragmentIdsResponse] =
     (a1: grpc.FragmentIdsResponse, a2: grpc.FragmentIdsResponse) => a1 == a2
+
+  implicit val eqInspectableActorsRequest: Equal[InspectableActorsRequest.type] =
+    (_: InspectableActorsRequest.type, _: InspectableActorsRequest.type) => true
+
+  implicit val eqGRPCInspectableActorsRequest: Equal[grpc.InspectableActorsRequest] =
+    (_: grpc.InspectableActorsRequest, _: grpc.InspectableActorsRequest) => true
 }

@@ -72,13 +72,13 @@ class ActorInspectorManager extends Actor with ActorLogging {
   }
 
   def subscriptionRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {
-    case p@Put(ref, keys0, groups0) =>
+    case p @ Put(ref, keys0, groups0) =>
       println(s)
       println(p)
       val s0 = s.put(ref, keys0, groups0)
       println(s0)
       context.become(statefulReceive(s0))
-    case Release(ref)             => context.become(statefulReceive(s.release(ref)))
+    case Release(ref) => context.become(statefulReceive(s.release(ref)))
   }
 
   def infoRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {

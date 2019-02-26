@@ -87,17 +87,9 @@ class ActorInspectorManagerSpec
       inspectorRef ! FragmentIdsRequest(dummyRef.toId)
       expectMsg(FragmentIdsResponse(Left(ActorNotInspectable(dummyRef.toId))))
     }
-
-//    "inspect an actor that has been declared" in {
-//      val inspector = ActorInspector(system)
-//      val dummyRef = InspectableActorRef(system.actorOf(Props[DummyInspectableActor]))
-//
-//      inspector.
-//    }
   }
 
-  override def afterAll: Unit =
-    TestKit.shutdownActorSystem(system)
+  override def afterAll: Unit = TestKit.shutdownActorSystem(system)
 }
 
 object ActorInspectorManagerSpec {

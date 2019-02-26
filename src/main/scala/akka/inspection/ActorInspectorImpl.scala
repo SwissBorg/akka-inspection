@@ -5,6 +5,7 @@ import akka.inspection.ActorInspection.FragmentId
 import akka.inspection.ActorInspectorManager.Groups.Group
 import akka.inspection.ActorInspectorManager._
 import akka.pattern.ask
+import akka.stream.{ActorMaterializer, Materializer}
 import akka.util.Timeout
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -15,45 +16,27 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef)
     with grpc.ActorInspectionService {
   import ActorInspectorImpl._
 
+  implicit val sys: ActorSystem = system
+  implicit val mat: Materializer = ActorMaterializer()
+  implicit val ec: ExecutionContext = sys.dispatcher
+  implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
+
   def put(ref: ActorRef, keys: Set[FragmentId], groups: Set[Group]): Unit =
     actorInspectorManager ! Put(InspectableActorRef(ref), keys, groups)
 
   def release(ref: ActorRef): Unit = actorInspectorManager ! Release(InspectableActorRef(ref))
 
-  override def requestInspectableActors(in: grpc.InspectableActorsRequest): Future[grpc.InspectableActorsResponse] = {
-    import scala.concurrent.ExecutionContext.Implicits.global // TODO
-
-    implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
-    implicit val scheduler: Scheduler = system.scheduler
-
+  override def requestInspectableActors(in: grpc.InspectableActorsRequest): Future[grpc.InspectableActorsResponse] =
     (actorInspectorManager ? InspectableActorsRequest).mapTo[InspectableActorsResponse].map(_.toGRPC)
-  }
 
-  override def requestGroups(in: grpc.GroupsRequest): Future[grpc.GroupsResponse] = {
-    import scala.concurrent.ExecutionContext.Implicits.global // TODO
-
-    implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
-    implicit val scheduler: Scheduler = system.scheduler
-
+  override def requestGroups(in: grpc.GroupsRequest): Future[grpc.GroupsResponse] =
     (actorInspectorManager ? GroupsRequest.fromGRPC(in)).mapTo[GroupsResponse].map(_.toGRPC)
-  }
 
-  override def requestFragmentIds(in: grpc.FragmentIdsRequest): Future[grpc.FragmentIdsResponse] = {
-    import scala.concurrent.ExecutionContext.Implicits.global // TODO
-
-    implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
-    implicit val scheduler: Scheduler = system.scheduler
-
+  override def requestFragmentIds(in: grpc.FragmentIdsRequest): Future[grpc.FragmentIdsResponse] =
     (actorInspectorManager ? FragmentIdsRequest.fromGRPC(in)).mapTo[FragmentIdsResponse].map(_.toGRPC)
-  }
 
-  override def requestFragments(in: grpc.FragmentsRequest): Future[grpc.FragmentsResponse] = {
-    implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
-    implicit val scheduler: Scheduler = system.scheduler
-    implicit val ec: ExecutionContext = system.dispatcher
-
+  override def requestFragments(in: grpc.FragmentsRequest): Future[grpc.FragmentsResponse] =
     (actorInspectorManager ? FragmentsRequest.fromGRPC(in)).mapTo[FragmentsResponse].map(_.toGRPC)
-  }
 }
 
 object ActorInspectorImpl {

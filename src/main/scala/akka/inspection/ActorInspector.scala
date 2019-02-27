@@ -1,12 +1,8 @@
 package akka.inspection
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider, PoisonPill, Props}
-import akka.cluster.singleton.{
-  ClusterSingletonManager,
-  ClusterSingletonManagerSettings,
-  ClusterSingletonProxy,
-  ClusterSingletonProxySettings
-}
+import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
+import akka.inspection.manager.ActorInspectorManager
 
 object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdProvider {
   override def createExtension(system: ExtendedActorSystem): ActorInspectorImpl = {

@@ -1,4 +1,4 @@
-package akka.inspection
+package akka.inspection.manager
 
 import akka.inspection.laws.arbitrary._
 import monocle.law.discipline

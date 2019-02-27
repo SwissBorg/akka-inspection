@@ -1,13 +1,8 @@
 package akka.inspection.laws
 
 import akka.inspection.ActorInspection.FragmentId
-import akka.inspection.ActorInspectorManager.{
-  ActorNotInspectable,
-  FragmentIdsRequest,
-  FragmentIdsResponse,
-  InspectableActorsRequest
-}
 import akka.inspection.grpc
+import akka.inspection.manager.ActorInspectorManager._
 import org.scalacheck.Arbitrary.{arbEither, arbString, arbitrary => getArbitrary}
 import org.scalacheck.Cogen._
 import org.scalacheck.Gen._

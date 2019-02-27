@@ -1,7 +1,7 @@
 package akka.inspection
 
 import akka.actor.ActorSystem
-import akka.inspection.ActorInspectorManager._
+import akka.inspection.manager.ActorInspectorManager._
 import akka.stream.{ActorMaterializer, Materializer}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -18,6 +18,10 @@ class ActorInspectorServiceImpl(system: ActorSystem) extends grpc.ActorInspectio
 
   override def requestGroups(in: grpc.GroupsRequest): Future[grpc.GroupsResponse] =
     manager.requestGroups(GroupsRequest.fromGRPC(in)).map(_.toGRPC)
+
+  override def requestGroup(
+    in: grpc.GroupRequest
+  ): Future[grpc.GroupResponse] = manager.requestGroup(GroupRequest.fromGRPC(in)).map(_.toGRPC)
 
   override def requestFragmentIds(in: grpc.FragmentIdsRequest): Future[grpc.FragmentIdsResponse] =
     manager.requestFragmentIds(FragmentIdsRequest.fromGRPC(in)).map(_.toGRPC)

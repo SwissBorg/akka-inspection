@@ -9,6 +9,7 @@ package actorinspection;
 service ActorInspectionService {
     rpc RequestInspectableActors (InspectableActorsRequest) returns (InspectableActorsResponse) {}
     rpc RequestGroups (GroupsRequest) returns (GroupsResponse) {}
+    rpc RequestGroup (GroupRequest) returns (GroupResponse) {}
     rpc RequestFragmentIds (FragmentIdsRequest) returns (FragmentIdsResponse) {}
     rpc RequestFragments (FragmentsRequest) returns (FragmentsResponse) {}
 }
@@ -31,6 +32,13 @@ message GroupsResponse {
         Groups groups = 1;
         Error.ActorNotInspectable error = 2;
     }
+}
+
+message GroupRequest {
+    string group = 1;
+}
+message GroupResponse {
+    repeated string inspectable_actors = 1;
 }
 
 message FragmentIdsRequest {

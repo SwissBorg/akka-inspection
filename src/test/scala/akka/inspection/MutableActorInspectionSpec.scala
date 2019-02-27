@@ -3,18 +3,14 @@ package akka.inspection
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.inspection.ActorInspection._
 import akka.inspection.ActorInspectorImpl.InspectableActorRef
-import akka.inspection.ActorInspectorManager.Put
+import akka.inspection.manager.ActorInspectorManager
 import akka.inspection.util.{LazyFuture, Render}
 import akka.testkit.{ImplicitSender, TestKit}
-import cats.{Applicative, Monad}
 import cats.data.OptionT
-import cats.implicits._
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.{AsyncWordSpecLike, BeforeAndAfterAll, Matchers}
-
-import scala.concurrent.Future
 
 class MutableActorInspectionSpec
     extends TestKit(ActorSystem("MutableActorInspectionSpec", MutableActorInspectionSpec.testConfig))
@@ -36,16 +32,15 @@ class MutableActorInspectionSpec
 
       inspectableRef.ref ! 42
 
-      val f = for {
-        response <- OptionT.liftF(LazyFuture(() => inspector.requestFragments(m)))
-        assertion = response match {
+      OptionT
+        .liftF(LazyFuture(inspector.requestFragments(m)))
+        .map {
           case ActorInspectorManager.FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment1)
           case r                                                         => assert(false, r)
         }
-      } yield assertion
-
-      f.map(eventually(_)).fold(assert(false))(identity).run
-
+        .map(eventually(_))
+        .fold(assert(false))(identity)
+        .value
     }
   }
 
@@ -65,7 +60,7 @@ object MutableActorInspectionSpec {
       case _ => i += 1
     }
 
-    override val stateFragments: Map[FragmentId, Fragment] = Map {
+    override val fragments: Map[FragmentId, Fragment] = Map {
       FragmentId("yes") -> Fragment.always(i)
     }
   }

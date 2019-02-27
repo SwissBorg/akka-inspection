@@ -1,14 +1,13 @@
 package akka.inspection
 
-import akka.actor.{ActorRef, ActorSystem, Extension, Scheduler}
+import akka.actor.{ActorRef, ActorSystem, Extension}
 import akka.inspection.ActorInspection.FragmentId
-import akka.inspection.ActorInspectorManager.Groups.Group
-import akka.inspection.ActorInspectorManager._
+import akka.inspection.manager.ActorInspectorManager._
+import akka.inspection.manager.state.Group
 import akka.pattern.ask
-import akka.stream.{ActorMaterializer, Materializer}
 import akka.util.Timeout
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef) extends Extension {
@@ -26,6 +25,9 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef) e
 
   def requestGroups(request: GroupsRequest): Future[GroupsResponse] =
     (actorInspectorManager ? request).mapTo[GroupsResponse]
+
+  def requestGroup(request: GroupRequest): Future[GroupResponse] =
+    (actorInspectorManager ? request).mapTo[GroupResponse]
 
   def requestFragmentIds(request: FragmentIdsRequest): Future[FragmentIdsResponse] =
     (actorInspectorManager ? request).mapTo[FragmentIdsResponse]

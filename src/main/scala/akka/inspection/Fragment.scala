@@ -1,4 +1,5 @@
 package akka.inspection
+
 import akka.inspection.ActorInspection.{FinalizedFragment, RenderedFragment, UndefinedFragment}
 import akka.inspection.util.Render
 
@@ -74,13 +75,13 @@ private[inspection] object Fragment {
   /**
    * [[Fragment]] fallback.
    */
-  private[inspection] def undefined[S]: Fragment[S] = Undefined()
+  def undefined[S]: Fragment[S] = Undefined()
 
   /**
    * Helper to provide [[S]] so that the user that extends [[ActorInspection]]
    * does not have to annotate the state's type when building state fragments.
    */
-  final private[inspection] class FragmentPartiallyApplied[S](val dummy: Boolean = true) extends AnyVal {
+  final class FragmentPartiallyApplied[S](val dummy: Boolean = true) extends AnyVal {
     def apply[T: Render](t: T): Fragment[S] = Fragment(t)
     def always[T: Render](t: => T): Fragment[S] = Fragment.always(t)
     def state[T: Render](t: S => T): Fragment[S] = Fragment.state(t)

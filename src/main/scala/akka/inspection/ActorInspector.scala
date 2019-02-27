@@ -1,8 +1,14 @@
 package akka.inspection
 
 import akka.actor.{ActorRef, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider, PoisonPill, Props}
-import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
+import akka.cluster.singleton.{
+  ClusterSingletonManager,
+  ClusterSingletonManagerSettings,
+  ClusterSingletonProxy,
+  ClusterSingletonProxySettings
+}
 import akka.inspection.manager.ActorInspectorManager
+import akka.inspection.server.ActorInspectorServer
 
 object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdProvider {
   override def createExtension(system: ExtendedActorSystem): ActorInspectorImpl = {
@@ -19,6 +25,9 @@ object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdPr
         ClusterSingletonProxy.props(singletonManagerPath = "/user/ActorInspectorManager",
                                     settings = ClusterSingletonProxySettings(system))
       )
+
+    // Start server
+    new ActorInspectorServer(system).run()
 
     new ActorInspectorImpl(system, proxy)
   }

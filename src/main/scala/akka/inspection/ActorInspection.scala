@@ -27,7 +27,7 @@ trait ActorInspection[S] extends Actor {
   type FragmentId = ActorInspection.FragmentId
 
   /**
-   * @see [[akka.inspection.Fragmen]]
+   * @see [[akka.inspection.Fragment]]
    */
   type Fragment = akka.inspection.Fragment[S]
   val Fragment = new akka.inspection.Fragment.FragmentPartiallyApplied[S]()

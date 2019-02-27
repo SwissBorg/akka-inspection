@@ -1,6 +1,6 @@
 package akka.inspection.manager
 
-import akka.actor.{Actor, ActorLogging}
+import akka.actor.{Actor, ActorLogging, Props}
 import akka.inspection.ActorInspection
 import akka.inspection.manager.state.{Errors, Events, State}
 import akka.stream.{ActorMaterializer, Materializer, QueueOfferResult}
@@ -86,4 +86,7 @@ class ActorInspectorManager extends Actor with ActorLogging {
   }
 }
 
-object ActorInspectorManager extends Events with Errors
+object ActorInspectorManager extends Events with Errors {
+  def props(): Props = Props(new ActorInspectorManager)
+
+}

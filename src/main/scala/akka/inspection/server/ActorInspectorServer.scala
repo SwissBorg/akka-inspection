@@ -5,8 +5,8 @@ import akka.cluster.Cluster
 import akka.http.scaladsl.UseHttp2.Always
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.http.scaladsl.{Http, HttpConnectionContext}
-import akka.inspection.{ActorInspector, ActorInspectorImpl, grpc}
 import akka.inspection.service.ActorInspectionServiceImpl
+import akka.inspection.{grpc, ActorInspector}
 import akka.stream.{ActorMaterializer, Materializer}
 import com.typesafe.config.ConfigFactory
 

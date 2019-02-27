@@ -26,10 +26,12 @@ object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdPr
                                     settings = ClusterSingletonProxySettings(system))
       )
 
+    val actorInspectorManager = system.actorOf(ActorInspectorManager.props())
+
     // Start server
     new ActorInspectorServer(system).run()
 
-    new ActorInspectorImpl(system, proxy)
+    new ActorInspectorImpl(system, actorInspectorManager)
   }
 
   override def lookup(): ExtensionId[_ <: Extension] = ActorInspector

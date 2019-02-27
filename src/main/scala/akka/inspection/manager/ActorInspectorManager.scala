@@ -1,7 +1,9 @@
 package akka.inspection.manager
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.cluster.ddata._
 import akka.inspection.ActorInspection
+import akka.cluster.ddata.Replicator._
 import akka.inspection.manager.state.{Errors, Events, State}
 import akka.stream.{ActorMaterializer, Materializer, QueueOfferResult}
 
@@ -15,10 +17,23 @@ import scala.concurrent.ExecutionContext
 class ActorInspectorManager extends Actor with ActorLogging {
   import ActorInspectorManager._
 
-  implicit val ec: ExecutionContext = context.dispatcher
-  implicit val mat: Materializer = ActorMaterializer()
+  implicit private val ec: ExecutionContext = context.dispatcher
+  implicit private val mat: Materializer = ActorMaterializer()
+
+  private val replicator = DistributedData(context.system).replicator
+  implicit val node: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
+
+  // Setup
+  val DataKey: ORSetKey[ActorRef] = ORSetKey[ActorRef]("actor-inspector-managers")
+  replicator ! Subscribe(DataKey, self)
+  replicator ! Update(DataKey, ORSet.empty[ActorRef], WriteLocal)(_ :+ self)
 
   override def receive: Receive = statefulReceive(State.empty)
+
+  private def blaReceive: Receive = {
+    case _: UpdateResponse[_] => ()
+    case Changed(DataKey)     => ()
+  }
 
   private def statefulReceive(s: State[ActorInspection.FragmentsRequest]): Receive =
     fragmentRequests(s).orElse(subscriptionRequests(s)).orElse(infoRequests(s))
@@ -68,7 +83,7 @@ class ActorInspectorManager extends Actor with ActorLogging {
       initiator ! FragmentsResponse(Right(fragments))
   }
 
-  def subscriptionRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {
+  private def subscriptionRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {
     case p @ Put(ref, keys0, groups0) =>
       println(s)
       println(p)
@@ -78,11 +93,26 @@ class ActorInspectorManager extends Actor with ActorLogging {
     case Release(ref) => context.become(statefulReceive(s.release(ref)))
   }
 
-  def infoRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {
+  private def infoRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {
     case InspectableActorsRequest => sender() ! InspectableActorsResponse(s.inspectableActorIds.toList)
     case GroupsRequest(id)        => sender() ! GroupsResponse(s.groups(id).map(_.toList))
     case FragmentIdsRequest(id)   => sender() ! FragmentIdsResponse(s.stateFragmentIds(id).map(_.toList))
     case GroupRequest(group)      => sender() ! GroupResponse(s.inGroup(group))
+  }
+
+  override def postStop(): Unit = {
+    replicator ! Update(DataKey, ORSet.empty[ActorRef], WriteLocal)(_.remove(self))
+    super.postStop()
+  }
+
+  override def preRestart(reason: Throwable, message: Option[Any]): Unit = {
+    replicator ! Update(DataKey, ORSet.empty[ActorRef], WriteLocal)(_.remove(self))
+    super.preRestart(reason, message)
+  }
+
+  override def postRestart(reason: Throwable): Unit = {
+    replicator ! Update(DataKey, ORSet.empty[ActorRef], WriteLocal)(_ :+ self)
+    super.postRestart(reason)
   }
 }
 

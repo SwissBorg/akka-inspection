@@ -4,9 +4,10 @@ import akka.inspection.laws.arbitrary._
 import monocle.law.discipline
 import org.scalatest.FunSuite
 import org.typelevel.discipline.scalatest.Discipline
-import akka.inspection.manager._
 
-
-class InspectableActorsRequestSpec extends FunSuite with Discipline {
+class EventsSpec extends FunSuite with Discipline {
+  checkAll("FragmentIdsRequest", discipline.IsoTests(FragmentIdsRequest.grpcIso))
   checkAll("InspectableActorsRequest", discipline.IsoTests(InspectableActorsRequest.grpcIso))
+
+  checkAll("FragmentIdsResponse", discipline.PrismTests(FragmentIdsResponse.grpcPrism))
 }

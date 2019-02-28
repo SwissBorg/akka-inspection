@@ -7,14 +7,12 @@ import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata.{DistributedData, ORSetKey}
 import cats.implicits._
 
-import scala.concurrent.duration._
-
 /**
+ * Broadcasts the request to other managers and combines their responses.
  *
- * @param replyTo
- * @param managersKey
+ * @param managersKey the distributed-data key that stores the available managers.
  */
-class BroadcastActor(manager: ActorRef, managersKey: String) extends Actor with ActorLogging {
+class BroadcastActor(managersKey: String) extends Actor with ActorLogging {
   import BroadcastActor._
 
   private val replicator = DistributedData(context.system).replicator
@@ -33,7 +31,8 @@ class BroadcastActor(manager: ActorRef, managersKey: String) extends Actor with 
 
   /**
    * Handles the incoming events.
-   * @param managers ???
+   *
+   * @param managers the managers available in the cluster.
    * @param workList the responses awaiting answers from the managers.
    */
   private def receiveS(managers: Set[ActorRef], workList: Map[UUID, (Set[ActorRef], Option[ResponseEvent])]): Receive = {
@@ -111,5 +110,5 @@ object BroadcastActor {
       BroadcastResponse(response, br.replyTo, br.id)
   }
 
-  def props(manager: ActorRef, managersKey: String): Props = Props(new BroadcastActor(manager, managersKey))
+  def props(manager: ActorRef, managersKey: String): Props = Props(new BroadcastActor(managersKey))
 }

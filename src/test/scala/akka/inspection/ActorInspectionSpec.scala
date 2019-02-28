@@ -1,9 +1,9 @@
 package akka.inspection
 
 import akka.actor.{Actor, ActorSystem, Props}
-import akka.inspection.ActorInspection._
+import akka.inspection.ActorInspection.{FragmentsRequest => _, FragmentsResponse => _, _}
 import akka.inspection.ActorInspectorImpl.InspectableActorRef
-import akka.inspection.manager.ActorInspectorManager
+import akka.inspection.manager._
 import akka.inspection.util.{LazyFuture, Render}
 import akka.testkit.{ImplicitSender, TestKit}
 import cats.data.OptionT
@@ -26,7 +26,7 @@ class ActorInspectionSpec
 
       val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
 
-      val m = ActorInspectorManager.FragmentsRequest(List(FragmentId("yes")), inspectableRef.toId)
+      val m = FragmentsRequest(List(FragmentId("yes")), inspectableRef.toId)
       val expectedFragment1 = Map(FragmentId("yes") -> RenderedFragment("1"))
 
       inspectableRef.ref ! 42
@@ -34,8 +34,8 @@ class ActorInspectionSpec
       OptionT
         .liftF(LazyFuture(inspector.requestFragments(m)))
         .map {
-          case ActorInspectorManager.FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment1)
-          case r                                                         => assert(false, r)
+          case FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment1)
+          case r                                   => assert(false, r)
         }
         .map(eventually(_))
         .fold(assert(false))(identity)

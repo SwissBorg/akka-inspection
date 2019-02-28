@@ -1,9 +1,9 @@
 package akka.inspection
 
-import akka.actor.{Actor, ActorSystem, Props}
-import akka.inspection.ActorInspection._
+import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
+import akka.inspection.ActorInspection.{FragmentsRequest => _, FragmentsResponse => _, _}
 import akka.inspection.ActorInspectorImpl.InspectableActorRef
-import akka.inspection.manager.ActorInspectorManager
+import akka.inspection.manager._
 import akka.inspection.util.{LazyFuture, Render}
 import akka.testkit.{ImplicitSender, TestKit}
 import cats.data.OptionT
@@ -27,7 +27,13 @@ class MutableActorInspectionSpec
 
       val inspectableRef = InspectableActorRef(system.actorOf(Props[MutableActor]))
 
-      val m = ActorInspectorManager.FragmentsRequest(List(FragmentId("yes")), inspectableRef.toId)
+
+      val m = FragmentsRequest(List(FragmentId("yes")), inspectableRef.toId)
+
+//      inspector.requestFragments(m).onComplete {
+//        case r => println(r)
+//      }
+
       val expectedFragment1 = Map(FragmentId("yes") -> RenderedFragment("1"))
 
       inspectableRef.ref ! 42
@@ -35,8 +41,8 @@ class MutableActorInspectionSpec
       OptionT
         .liftF(LazyFuture(inspector.requestFragments(m)))
         .map {
-          case ActorInspectorManager.FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment1)
-          case r                                                         => assert(false, r)
+          case FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment1)
+          case r                                   => assert(false, r)
         }
         .map(eventually(_))
         .fold(assert(false))(identity)
@@ -53,11 +59,15 @@ class MutableActorInspectionSpec
 object MutableActorInspectionSpec {
   implicit val intShow: Render[Int] = (t: Int) => t.toString
 
-  class MutableActor extends Actor with MutableActorInspection {
+  class MutableActor extends Actor with MutableActorInspection with ActorLogging {
+    log.debug("STARTed!!!!!!!!!!!!!!!!!!!!!")
+
     var i: Int = 0
 
     override def receive: Receive = withInspection {
-      case _ => i += 1
+      case r =>
+        log.debug(r.toString)
+        i += 1
     }
 
     override val fragments: Map[FragmentId, Fragment] = Map {
@@ -69,13 +79,15 @@ object MutableActorInspectionSpec {
     .parseString {
       """
         |akka {
-        | // loglevel= "DEBUG"
+        |  loglevel= "DEBUG"
         |
         |  actor {
         |    provider = cluster
         |  }
         |
         |  remote {
+        |    log-received-messages = on
+        |
         |    netty.tcp {
         |      hostname = "127.0.0.1"
         |      port = 2551

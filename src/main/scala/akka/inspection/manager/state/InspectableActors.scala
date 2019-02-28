@@ -1,7 +1,7 @@
 package akka.inspection.manager.state
 
 import akka.inspection.ActorInspectorImpl.InspectableActorRef
-import akka.inspection.manager.ActorInspectorManager.ActorNotInspectable
+import akka.inspection.manager._
 
 /**
  * Manages the inspectable actors.

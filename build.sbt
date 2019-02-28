@@ -13,6 +13,7 @@ val catsVersion = "1.6.0"
 val scalatestVersion = "3.0.5"
 val monocleVersion = "1.5.0"
 val scoptVersion = "4.0.0-RC2"
+val shapelessVersion = "2.3.3"
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
@@ -22,6 +23,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
   "com.typesafe.akka" %% "akka-http" % akkaHTTPVersion,
   "org.typelevel" %% "cats-core" % catsVersion,
+  "com.chuusai" %% "shapeless" % shapelessVersion,
   "com.github.julien-truffaut" %% "monocle-core" % monocleVersion,
   "com.github.scopt" %% "scopt" % scoptVersion,
   "com.github.julien-truffaut" %% "monocle-law" % monocleVersion % Test,

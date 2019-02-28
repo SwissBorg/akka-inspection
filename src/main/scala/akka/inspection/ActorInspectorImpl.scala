@@ -2,7 +2,7 @@ package akka.inspection
 
 import akka.actor.{ActorRef, ActorSystem, Extension}
 import akka.inspection.ActorInspection.FragmentId
-import akka.inspection.manager.ActorInspectorManager._
+import akka.inspection.manager._
 import akka.inspection.manager.state.Group
 import akka.pattern.ask
 import akka.util.Timeout
@@ -33,7 +33,10 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef) e
     (actorInspectorManager ? request).mapTo[FragmentIdsResponse]
 
   def requestFragments(request: FragmentsRequest): Future[FragmentsResponse] =
-    (actorInspectorManager ? request).mapTo[FragmentsResponse]
+   {
+     println("requesting")
+     (actorInspectorManager ? request).mapTo[FragmentsResponse]
+   }
 }
 
 object ActorInspectorImpl {

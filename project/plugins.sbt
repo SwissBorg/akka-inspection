@@ -9,3 +9,7 @@ addSbtPlugin("com.lightbend.sbt" % "sbt-javaagent" % "0.1.4") // ALPN agent
 
 // Multi-JVM testing
 addSbtPlugin("com.typesafe.sbt" % "sbt-multi-jvm" % "0.4.0")
+
+// Kind-projector
+addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
+

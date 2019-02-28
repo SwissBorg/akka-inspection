@@ -1,19 +1,22 @@
 package akka.inspection.manager.state
 
+import akka.inspection.ActorInspection
 import akka.inspection.ActorInspection.FragmentId
 import akka.inspection.ActorInspectorImpl.InspectableActorRef
-import akka.inspection.manager.ActorInspectorManager.ActorNotInspectable
+import akka.inspection.manager._
 import akka.stream.{Materializer, QueueOfferResult}
 
+import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
 
-final private[manager] case class State[M](
+final private[manager] case class State(
   private val inspectableActors: InspectableActors,
   private val stateFragments: Fragments,
   private val groups: Groups,
-  private val sourceQueues: SourceQueues[M]
+  private val sourceQueues: SourceQueues[ActorInspection.FragmentsRequest],
+  private val requestQueue: Queue[ResponseEvent]
 )(implicit context: ExecutionContext, materializer: Materializer) {
-  def put(ref: InspectableActorRef, keys: Set[FragmentId], groups: Set[Group]): State[M] =
+  def put(ref: InspectableActorRef, keys: Set[FragmentId], groups: Set[Group]): State =
     copy(
       inspectableActors = inspectableActors.add(ref),
       stateFragments = this.stateFragments.addStateFragment(ref, keys),
@@ -21,7 +24,7 @@ final private[manager] case class State[M](
       sourceQueues = sourceQueues.add(ref)
     )
 
-  def release(ref: InspectableActorRef): State[M] =
+  def release(ref: InspectableActorRef): State =
     copy(
       inspectableActors = inspectableActors.remove(ref),
       stateFragments = stateFragments.remove(ref),
@@ -29,10 +32,9 @@ final private[manager] case class State[M](
       sourceQueues = sourceQueues.remove(ref)
     )
 
-  def offer(m: M, id: String)(
-    implicit ec: ExecutionContext
-  ): Either[ActorNotInspectable, Future[QueueOfferResult]] =
-    inspectableActors.fromId(id).map(sourceQueues.offer(m, _))
+  def offer(request: ActorInspection.FragmentsRequest,
+            actor: String)(implicit ec: ExecutionContext): Either[ActorNotInspectable, Future[QueueOfferResult]] =
+    inspectableActors.fromId(actor).map(sourceQueues.offer(request, _))
 
   def inspectableActorIds: Set[String] = inspectableActors.actorIds
 
@@ -43,12 +45,19 @@ final private[manager] case class State[M](
 
   def stateFragmentIds(id: String): Either[ActorNotInspectable, Set[FragmentId]] =
     inspectableActors.fromId(id).map(stateFragments.stateFragmentsIds)
+
+  def stash(r: ResponseEvent): State = copy(requestQueue = requestQueue.enqueue(r))
+
+  def optionUnstash: Option[(ResponseEvent, State)] = requestQueue.dequeueOption.map {
+    case (e, q0) => (e, copy(requestQueue = q0))
+  }
 }
 
 private[manager] object State {
-  def empty[M](implicit context: ExecutionContext, materializer: Materializer): State[M] =
+  def empty(implicit context: ExecutionContext, materializer: Materializer): State =
     State(inspectableActors = InspectableActors.empty,
           stateFragments = Fragments.empty,
           groups = Groups.empty,
-          sourceQueues = SourceQueues.empty)
+          sourceQueues = SourceQueues.empty,
+          requestQueue = Queue.empty)
 }

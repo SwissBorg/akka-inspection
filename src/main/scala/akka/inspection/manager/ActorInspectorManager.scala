@@ -1,13 +1,19 @@
 package akka.inspection.manager
 
+import java.util.UUID
+
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata._
 import akka.inspection.ActorInspection
-import akka.cluster.ddata.Replicator._
-import akka.inspection.manager.state.{Errors, Events, State}
+import akka.inspection.manager.BroadcastActor.{BroadcastResponse, BroadcastedRequest}
+import akka.inspection.manager.state._
 import akka.stream.{ActorMaterializer, Materializer, QueueOfferResult}
+import cats.data.OptionT
+import cats.implicits._
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
 
 /**
  * Manages all the requests to inspect actors.
@@ -15,7 +21,8 @@ import scala.concurrent.ExecutionContext
  * WARNING: needs to be singleton!
  */
 class ActorInspectorManager extends Actor with ActorLogging {
-  import ActorInspectorManager._
+
+  private val router = context.system.actorOf(BroadcastActor.props(self, "actor-inspector-managers"))
 
   implicit private val ec: ExecutionContext = context.dispatcher
   implicit private val mat: Materializer = ActorMaterializer()
@@ -25,80 +32,100 @@ class ActorInspectorManager extends Actor with ActorLogging {
 
   // Setup
   val DataKey: ORSetKey[ActorRef] = ORSetKey[ActorRef]("actor-inspector-managers")
-  replicator ! Subscribe(DataKey, self)
   replicator ! Update(DataKey, ORSet.empty[ActorRef], WriteLocal)(_ :+ self)
 
   override def receive: Receive = statefulReceive(State.empty)
 
-  private def blaReceive: Receive = {
-    case _: UpdateResponse[_] => ()
-    case Changed(DataKey)     => ()
+  private def statefulReceive(s: State): Receive =
+    distributedRequests.orElse(broadcastedRequests(s)).orElse(subscriptionRequests(s)).orElse(infoRequests(s)).orElse(bla)
+
+  private def broadcastedRequests(s: State): Receive = {
+    case br @ BroadcastedRequest(request, id) =>
+      log.debug(br.toString)
+      val replyTo = sender()
+
+      responseTo(request, s, Some(id)).map(br.response).value.onComplete {
+        case Success(Some(response)) => replyTo ! response
+        case _                       => ()
+      }
   }
 
-  private def statefulReceive(s: State[ActorInspection.FragmentsRequest]): Receive =
-    fragmentRequests(s).orElse(subscriptionRequests(s)).orElse(infoRequests(s))
-
-  /**
-   * Handles the requests for state-fragments.
-   *
-   * Note: the caller expects a reply of type
-   * `Either[ActorInspectorManager.Error, Map[StateFragmentId, FinalizedStateFragment0]`.
-   */
-  private def fragmentRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {
-    case FragmentsRequest(fragments, id) =>
-      val initiator = sender()
-      println(s"Request: $id")
-      println(s)
-      val m = s.offer(ActorInspection.FragmentsRequest(fragments, self, initiator), id)
-//      println(m)
-      m match {
-        case Right(m) =>
-          m.foreach {
-            case QueueOfferResult.Enqueued =>
-              println("1")
-              () // inspectable actor will receive the request
-
-            case QueueOfferResult.Dropped =>
-              println("2")
-
-              initiator ! FragmentsResponse(Left(UnreachableInspectableActor(id)))
-
-            case _: QueueOfferResult.Failure =>
-              println("3")
-
-              initiator ! FragmentsResponse(Left(UnreachableInspectableActor(id)))
-
-            case QueueOfferResult.QueueClosed =>
-              println("4")
-
-              initiator ! FragmentsResponse(Left(UnreachableInspectableActor(id)))
-          }
-
-        case Left(err) =>
-          println("5")
-          initiator ! FragmentsResponse(Left(err))
+  private def bla: Receive = {
+    case ActorInspection.FragmentsResponse(fragments, initiator, id) =>
+      val response = id match {
+        case Some(id) => BroadcastResponse(FragmentsResponse(Either.right(fragments)), id)
+        case None     => FragmentsResponse(Either.right(fragments))
       }
 
-    case ActorInspection.FragmentsResponse(fragments, initiator) =>
-      initiator ! FragmentsResponse(Right(fragments))
+      initiator ! response
   }
 
-  private def subscriptionRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {
-    case p @ Put(ref, keys0, groups0) =>
-      println(s)
-      println(p)
-      val s0 = s.put(ref, keys0, groups0)
-      println(s0)
-      context.become(statefulReceive(s0))
-    case Release(ref) => context.become(statefulReceive(s.release(ref)))
+  private def subscriptionRequests(s: State): Receive = {
+    case r @ Put(ref, keys0, groups0) =>
+      log.debug(r.toString)
+      context.become(statefulReceive(s.put(ref, keys0, groups0)))
+    case r @ Release(ref) =>
+      log.debug(r.toString)
+      context.become(statefulReceive(s.release(ref)))
   }
 
-  private def infoRequests(s: State[ActorInspection.FragmentsRequest]): Receive = {
-    case InspectableActorsRequest => sender() ! InspectableActorsResponse(s.inspectableActorIds.toList)
-    case GroupsRequest(id)        => sender() ! GroupsResponse(s.groups(id).map(_.toList))
-    case FragmentIdsRequest(id)   => sender() ! FragmentIdsResponse(s.stateFragmentIds(id).map(_.toList))
-    case GroupRequest(group)      => sender() ! GroupResponse(s.inGroup(group))
+  private def distributedRequests: Receive = {
+    case r: GroupRequest =>
+      log.debug(r.toString)
+      router ! r
+    case r: InspectableActorsRequest.type =>
+      log.debug(r.toString)
+      router ! r
   }
+
+  private def infoRequests(s: State): Receive = {
+    case r: RequestEvent =>
+      log.debug(r.toString)
+      val replyTo = sender()
+      responseTo(r, s).value.onComplete {
+        case Success(Some(response)) =>
+          response match {
+            case GroupsResponse(Left(ActorNotInspectable(_))) =>
+              // the actor might exist in another manager
+              router ! r
+            case _: InspectableActorsResponse =>
+              throw new IllegalStateException("'InspectableActorsResponse' messages should not be handled here.")
+            case _: GroupResponse =>
+              throw new IllegalStateException("'GroupRequest' messages should not be handled here.")
+            case _ => replyTo ! response
+          }
+        case r =>
+          log.debug(s"HERE! $r")
+          () // no response to send or the future failed
+      }
+  }
+
+  def responseTo(request: RequestEvent, s: State, id: Option[UUID] = None): OptionT[Future, ResponseEvent] =
+    request match {
+      case InspectableActorsRequest => OptionT.pure(InspectableActorsResponse(s.inspectableActorIds.toList))
+      case GroupsRequest(id)        => OptionT.pure(GroupsResponse(s.groups(id).map(_.toList)))
+      case GroupRequest(group)      => OptionT.pure(GroupResponse(s.inGroup(group)))
+      case FragmentIdsRequest(id)   => OptionT.pure(FragmentIdsResponse(s.stateFragmentIds(id).map(_.toList)))
+
+      case FragmentsRequest(fragments, actor) =>
+        val initiator = sender()
+        s.offer(ActorInspection.FragmentsRequest(fragments, self, initiator, id), actor) match {
+          case Right(m) =>
+            OptionT[Future, ResponseEvent](m.map {
+              case QueueOfferResult.Enqueued =>
+                log.debug("enqueue")
+                None // inspectable actor will receive the request
+              case QueueOfferResult.Dropped =>
+                Some(FragmentsResponse(Either.left(UnreachableInspectableActor(actor))))
+              case _: QueueOfferResult.Failure =>
+                Some(FragmentsResponse(Either.left(UnreachableInspectableActor(actor))))
+              case QueueOfferResult.QueueClosed =>
+                Some(FragmentsResponse(Either.left(UnreachableInspectableActor(actor))))
+            })
+
+          case Left(err) => OptionT.pure(FragmentsResponse(Either.left(err)))
+        }
+    }
 
   override def postStop(): Unit = {
     replicator ! Update(DataKey, ORSet.empty[ActorRef], WriteLocal)(_.remove(self))
@@ -116,7 +143,6 @@ class ActorInspectorManager extends Actor with ActorLogging {
   }
 }
 
-object ActorInspectorManager extends Events with Errors {
+object ActorInspectorManager {
   def props(): Props = Props(new ActorInspectorManager)
-
 }

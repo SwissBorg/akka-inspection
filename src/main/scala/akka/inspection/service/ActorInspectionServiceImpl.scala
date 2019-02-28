@@ -1,7 +1,7 @@
 package akka.inspection.service
 
-import akka.inspection.manager.ActorInspectorManager._
-import akka.inspection.{grpc, ActorInspector, ActorInspectorImpl}
+import akka.inspection.manager._
+import akka.inspection.{ActorInspector, ActorInspectorImpl, grpc}
 import akka.stream.Materializer
 
 import scala.concurrent.{ExecutionContext, Future}

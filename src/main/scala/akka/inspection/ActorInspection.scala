@@ -1,5 +1,7 @@
 package akka.inspection
 
+import java.util.UUID
+
 import akka.actor.{Actor, ActorRef}
 import akka.inspection.ActorInspection._
 import akka.inspection.ActorInspectorImpl.InspectableActorRef.{Ack, Init}
@@ -52,7 +54,7 @@ trait ActorInspection[S] extends Actor {
    * A receive that handles inspection events.
    */
   final def inspectionReceive(s: S): Receive = {
-    case r @ FragmentsRequest(_, replyTo, _) =>
+    case r @ FragmentsRequest(_, replyTo, _, _) =>
       handleQuery(s, r, replyTo)
       sender() ! Ack
 
@@ -61,7 +63,7 @@ trait ActorInspection[S] extends Actor {
   }
 
   protected def handleQuery(s: S, req: FragmentsRequest, replyTo: ActorRef): Unit =
-    replyTo ! req.fragmentIds.foldLeft(FragmentsResponse(req.initiator)) {
+    replyTo ! req.fragmentIds.foldLeft(FragmentsResponse(req.initiator, req.id)) {
       case (response, id) =>
         response.copy(
           fragments = response.fragments + (id -> fragments.getOrElse(id, Fragment.undefined).run(s))
@@ -85,14 +87,19 @@ private[inspection] object ActorInspection {
     val initiator: ActorRef
   }
 
-  final case class FragmentsRequest(fragmentIds: List[FragmentId], replyTo: ActorRef, initiator: ActorRef)
+  final case class FragmentsRequest(fragmentIds: List[FragmentId],
+                                    replyTo: ActorRef,
+                                    initiator: ActorRef,
+                                    id: Option[UUID])
       extends FragmentEvent
 
-  final case class FragmentsResponse(fragments: Map[FragmentId, FinalizedFragment], initiator: ActorRef)
+  final case class FragmentsResponse(fragments: Map[FragmentId, FinalizedFragment],
+                                     initiator: ActorRef,
+                                     id: Option[UUID])
       extends FragmentEvent
 
   object FragmentsResponse {
-    def apply(initiator: ActorRef): FragmentsResponse = FragmentsResponse(Map.empty, initiator)
+    def apply(initiator: ActorRef, id: Option[UUID]): FragmentsResponse = FragmentsResponse(Map.empty, initiator, id)
   }
 
   /**

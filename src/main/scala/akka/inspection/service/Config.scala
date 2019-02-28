@@ -6,9 +6,9 @@ import scopt.{OParser, OParserBuilder}
 import scala.concurrent.ExecutionContext
 import scala.util.Success
 
-case class Config(group: Option[String] = None)
+object Service {
+  case class Config(group: Option[String] = None)
 
-object Bla {
   val builder: OParserBuilder[Config] = OParser.builder[Config]
 
   val parser = {

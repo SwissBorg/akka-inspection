@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.grpc.GrpcClientSettings
 import akka.inspection.grpc
 import akka.inspection.grpc.ActorInspectionServiceClient
-import akka.inspection.service.Bla
+import akka.inspection.service.Service
 import akka.stream.ActorMaterializer
 import com.typesafe.config.ConfigFactory
 
@@ -24,6 +24,6 @@ object ActorInspectorClient {
     //GrpcClientSettings.fromConfig(grpc.ActorInspectionService.name)
     val client: grpc.ActorInspectionService = ActorInspectionServiceClient(clientSettings)
 
-    Bla.bla(Array("--group", "bla"), client)
+    Service.bla(Array("--group", "bla"), client)
   }
 }

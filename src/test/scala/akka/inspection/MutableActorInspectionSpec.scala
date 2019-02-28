@@ -2,7 +2,7 @@ package akka.inspection
 
 import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.inspection.ActorInspection.{FragmentsRequest => _, FragmentsResponse => _, _}
-import akka.inspection.ActorInspectorImpl.InspectableActorRef
+import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import akka.inspection.manager.state.Group
 import akka.inspection.util.{LazyFuture, Render}

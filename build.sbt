@@ -8,7 +8,7 @@ sbtVersion := "1.2.1"
 scalacOptions += "-Ypartial-unification"
 
 val akkaVersion = "2.5.21"
-val akkaHTTPVersion = "2.5.21"
+val akkaHTTPVersion = "10.1.7"
 val catsVersion = "1.6.0"
 val scalatestVersion = "3.0.5"
 val monocleVersion = "1.5.0"

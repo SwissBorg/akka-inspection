@@ -1,6 +1,6 @@
 package akka.inspection
 
-import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
+import akka.actor.{Actor, ActorSystem, Props}
 import akka.inspection.ActorInspection.{FragmentsRequest => _, FragmentsResponse => _, _}
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
@@ -23,19 +23,14 @@ class MutableActorInspectionSpec
   import MutableActorInspectionSpec._
 
   "MutableActorInspectionSpec" must {
-    "Observe state change" in {
+    "correctly inspect a specific fragment" in {
       val inspector = ActorInspector(system)
 
       val inspectableRef = InspectableActorRef(system.actorOf(Props[MutableActor]))
 
       val m = FragmentsRequest(List(FragmentId("yes")), inspectableRef.toId)
-//      val m = GroupRequest(Group("bla"))
 
-//      inspector.requestFragments(m).onComplete {
-//        case r => println(r)
-//      }
-
-      val expectedFragment1 = Map(FragmentId("yes") -> RenderedFragment("1"))
+      val expectedFragment = Map(FragmentId("yes") -> RenderedFragment("1"))
 
       inspectableRef.ref ! 42
 
@@ -44,8 +39,78 @@ class MutableActorInspectionSpec
         response <- OptionT.fromOption[LazyFuture](FragmentsResponse.fromGRPC(grpcResponse))
       } yield
         response match {
-          case FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment1)
+          case FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment)
           case r                                   => assert(false, r)
+        }
+
+      assertion
+        .map(eventually(_))
+        .fold(assert(false))(identity)
+        .value
+    }
+
+    "correctly inspect multiple fragments" in {
+      val inspector = ActorInspector(system)
+
+      val inspectableRef = InspectableActorRef(system.actorOf(Props[MutableActor]))
+
+      val m = FragmentsRequest(List(FragmentId("yes"), FragmentId("no")), inspectableRef.toId)
+
+      val expectedFragment = Map(FragmentId("yes") -> RenderedFragment("1"), FragmentId("no") -> RenderedFragment("2"))
+
+      inspectableRef.ref ! 42
+
+      val assertion = for {
+        grpcResponse <- OptionT.liftF(LazyFuture(inspector.requestFragments(m.toGRPC)))
+        response <- OptionT.fromOption[LazyFuture](FragmentsResponse.fromGRPC(grpcResponse))
+      } yield
+        response match {
+          case FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment)
+          case r                                   => assert(false, r)
+        }
+
+      assertion
+        .map(eventually(_))
+        .fold(assert(false))(identity)
+        .value
+    }
+
+    "correctly get the groups" in {
+      val inspector = ActorInspector(system)
+
+      val inspectableRef = InspectableActorRef(system.actorOf(Props[MutableActor]))
+      val expectedGroups = List(Group("hello"), Group("world"))
+
+      val assertion = for {
+        grpcResponse <- OptionT.liftF(LazyFuture(inspector.requestGroups(GroupsRequest(inspectableRef.toId).toGRPC)))
+        response <- OptionT.fromOption[LazyFuture](GroupsResponse.fromGRPC(grpcResponse))
+      } yield
+        response match {
+          case GroupsResponse(Right(groups)) => assert(groups == expectedGroups)
+          case r                             => assert(false, r)
+        }
+
+      assertion
+        .map(eventually(_))
+        .fold(assert(false))(identity)
+        .value
+    }
+
+    "correctly get the fragment ids" in {
+      val inspector = ActorInspector(system)
+
+      val inspectableRef = InspectableActorRef(system.actorOf(Props[MutableActor]))
+      val expectedFragmentIds = List(FragmentId("yes"), FragmentId("no"))
+
+      val assertion = for {
+        grpcResponse <- OptionT.liftF(
+          LazyFuture(inspector.requestFragmentIds(FragmentIdsRequest(inspectableRef.toId).toGRPC))
+        )
+        response <- OptionT.fromOption[LazyFuture](FragmentIdsResponse.fromGRPC(grpcResponse))
+      } yield
+        response match {
+          case FragmentIdsResponse(Right(groups)) => assert(groups == expectedFragmentIds)
+          case r                                  => assert(false, r)
         }
 
       assertion
@@ -64,10 +129,8 @@ class MutableActorInspectionSpec
 object MutableActorInspectionSpec {
   implicit val intShow: Render[Int] = (t: Int) => t.toString
 
-  class MutableActor extends Actor with MutableActorInspection with ActorLogging {
-    log.debug("STARTed!!!!!!!!!!!!!!!!!!!!!")
-
-    var i: Int = 0
+  class MutableActor extends Actor with MutableActorInspection {
+    private var i: Int = 0
 
     override def receive: Receive = withInspection {
       case r =>
@@ -75,9 +138,12 @@ object MutableActorInspectionSpec {
         i += 1
     }
 
-    override val fragments: Map[FragmentId, Fragment] = Map {
-      FragmentId("yes") -> Fragment.always(i)
-    }
+    override val fragments: Map[FragmentId, Fragment] = Map(
+      FragmentId("yes") -> Fragment.always(i),
+      FragmentId("no") -> Fragment.always(i + 1)
+    )
+
+    override val groups: Set[Group] = Set(Group("hello"), Group("world"))
   }
 
   val testConfig: Config = ConfigFactory

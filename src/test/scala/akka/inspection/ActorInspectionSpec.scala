@@ -4,14 +4,13 @@ import akka.actor.{Actor, ActorSystem, Props}
 import akka.inspection.ActorInspection.{FragmentsRequest => _, FragmentsResponse => _, _}
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
+import akka.inspection.manager.state.Group
 import akka.inspection.util.{LazyFuture, Render}
 import akka.testkit.{ImplicitSender, TestKit}
 import cats.data.OptionT
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{AsyncWordSpecLike, BeforeAndAfterAll, Matchers}
-import cats._
-import cats.implicits._
 
 class ActorInspectionSpec
     extends TestKit(ActorSystem("ActorInspectionSpec", ActorInspectionSpec.testConfig))
@@ -23,13 +22,14 @@ class ActorInspectionSpec
   import ActorInspectionSpec._
 
   "ActorInspectionSpec" must {
-    "Observe state change" in {
+    "correctly inspect a specific fragment" in {
       val inspector = ActorInspector(system)
 
       val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
 
       val m = FragmentsRequest(List(FragmentId("yes")), inspectableRef.toId)
-      val expectedFragment1 = Map(FragmentId("yes") -> RenderedFragment("1"))
+
+      val expectedFragment = Map(FragmentId("yes") -> RenderedFragment("1"))
 
       inspectableRef.ref ! 42
 
@@ -38,8 +38,78 @@ class ActorInspectionSpec
         response <- OptionT.fromOption[LazyFuture](FragmentsResponse.fromGRPC(grpcResponse))
       } yield
         response match {
-          case FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment1)
+          case FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment)
           case r                                   => assert(false, r)
+        }
+
+      assertion
+        .map(eventually(_))
+        .fold(assert(false))(identity)
+        .value
+    }
+
+    "correctly inspect multiple fragments" in {
+      val inspector = ActorInspector(system)
+
+      val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
+
+      val m = FragmentsRequest(List(FragmentId("yes"), FragmentId("no")), inspectableRef.toId)
+
+      val expectedFragment = Map(FragmentId("yes") -> RenderedFragment("1"), FragmentId("no") -> RenderedFragment("2"))
+
+      inspectableRef.ref ! 42
+
+      val assertion = for {
+        grpcResponse <- OptionT.liftF(LazyFuture(inspector.requestFragments(m.toGRPC)))
+        response <- OptionT.fromOption[LazyFuture](FragmentsResponse.fromGRPC(grpcResponse))
+      } yield
+        response match {
+          case FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment)
+          case r                                   => assert(false, r)
+        }
+
+      assertion
+        .map(eventually(_))
+        .fold(assert(false))(identity)
+        .value
+    }
+
+    "correctly get the groups" in {
+      val inspector = ActorInspector(system)
+
+      val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
+      val expectedGroups = List(Group("hello"), Group("world"))
+
+      val assertion = for {
+        grpcResponse <- OptionT.liftF(LazyFuture(inspector.requestGroups(GroupsRequest(inspectableRef.toId).toGRPC)))
+        response <- OptionT.fromOption[LazyFuture](GroupsResponse.fromGRPC(grpcResponse))
+      } yield
+        response match {
+          case GroupsResponse(Right(groups)) => assert(groups == expectedGroups)
+          case r                             => assert(false, r)
+        }
+
+      assertion
+        .map(eventually(_))
+        .fold(assert(false))(identity)
+        .value
+    }
+
+    "correctly get the fragment ids" in {
+      val inspector = ActorInspector(system)
+
+      val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
+      val expectedFragmentIds = List(FragmentId("yes"), FragmentId("no"))
+
+      val assertion = for {
+        grpcResponse <- OptionT.liftF(
+          LazyFuture(inspector.requestFragmentIds(FragmentIdsRequest(inspectableRef.toId).toGRPC))
+        )
+        response <- OptionT.fromOption[LazyFuture](FragmentIdsResponse.fromGRPC(grpcResponse))
+      } yield
+        response match {
+          case FragmentIdsResponse(Right(groups)) => assert(groups == expectedFragmentIds)
+          case r                                  => assert(false, r)
         }
 
       assertion
@@ -63,9 +133,12 @@ object ActorInspectionSpec {
       case _ => context.become(mainReceive(s.copy(i = s.i + 1)))
     }
 
-    override val fragments: Map[FragmentId, Fragment] = Map {
-      FragmentId("yes") -> Fragment.state(s => s.i)
-    }
+    override val fragments: Map[FragmentId, Fragment] = Map(
+      FragmentId("yes") -> Fragment.state(_.i),
+      FragmentId("no") -> Fragment.state(_.i + 1)
+    )
+
+    override val groups: Set[Group] = Set(Group("hello"), Group("world"))
   }
 
   object StatelessActor {

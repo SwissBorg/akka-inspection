@@ -37,14 +37,9 @@ class BroadcastActor(manager: ActorRef, managersKey: String) extends Actor with 
    * @param workList the responses awaiting answers from the managers.
    */
   private def receiveS(managers: Set[ActorRef], workList: Map[UUID, (Set[ActorRef], Option[ResponseEvent])]): Receive = {
-    case e: GroupedRequest =>
+    case e: BroadcastRequest =>
       managers.foreach(_ ! e)
       context.become(receiveS(managers, workList + (e.id -> (managers, None))))
-
-    case e: ForwardRequest =>
-      val otherManagers = managers - manager // we know the manager cannot respond successfully
-      otherManagers.foreach(_ ! e)
-      context.become(receiveS(otherManagers, workList + (e.id -> (managers, None))))
 
     case BroadcastResponse(responseEvent, replyTo, id) =>
       val (waitingFor, maybeResponse) =
@@ -55,7 +50,8 @@ class BroadcastActor(manager: ActorRef, managersKey: String) extends Actor with 
       val waitingFor0 = waitingFor - sender()
       val maybeResponse0 = Some(maybeResponse.fold(responseEvent)(_ |+| responseEvent)) // TODO seems weird
 
-      log.debug(s"UPDATED: Waiting for: $waitingFor0\n Response: $maybeResponse0")
+      val bla = sender()
+      log.debug(s"UPDATED: Waiting for: $waitingFor0\n Response: $maybeResponse0 by $bla")
 
       // finished waiting for replies
       if (waitingFor0.isEmpty) {
@@ -75,12 +71,12 @@ class BroadcastActor(manager: ActorRef, managersKey: String) extends Actor with 
 object BroadcastActor {
 
   /**
-   * Wrapper around [[RequestEvent]]s to signal that the request was sent from a manager's broadcaster.
+   *  Wrapper around [[RequestEvent]]s to signal that the request was sent from a manager's broadcaster.
+   * @param request the wrapped request.
+   * @param replyTo the actor that originated the request.
+   * @param id the unique identifier of the request.
    */
-  sealed abstract class BroadcastRequest extends Product with Serializable {
-    val request: RequestEvent
-    val replyTo: ActorRef
-    val id: UUID
+  sealed abstract case class BroadcastRequest(request: RequestEvent, replyTo: ActorRef, id: UUID) {
 
     /**
      * @see [[BroadcastResponse.fromBroadcastedRequest()]]
@@ -89,29 +85,9 @@ object BroadcastActor {
       BroadcastResponse.fromBroadcastedRequest(this, response)
   }
 
-  /**
-   * Request that has to be forwarded to another manager.
-   *
-   * @see [[BroadcastRequest]]
-   */
-  sealed abstract case class ForwardRequest(request: RequestEvent, replyTo: ActorRef, id: UUID) extends BroadcastRequest
-
-  object ForwardRequest {
-    def apply(request: RequestEvent, replyTo: ActorRef): ForwardRequest =
-      new ForwardRequest(request, replyTo, UUID.randomUUID()) {}
-  }
-
-  /**
-   * Request that needs the answer of all the managers in order to be responded to.
-   *
-   * @see [[BroadcastRequest]]
-   */
-  sealed abstract case class GroupedRequest(request: RequestEvent, replyTo: ActorRef, id: UUID) extends BroadcastRequest
-
-  object GroupedRequest {
-    def apply(request: RequestEvent, replyTo: ActorRef): GroupedRequest =
-      new GroupedRequest(request, replyTo, UUID.randomUUID()) {}
-
+  object BroadcastRequest {
+    def apply(request: RequestEvent, replyTo: ActorRef): BroadcastRequest =
+      new BroadcastRequest(request, replyTo, UUID.randomUUID()) {}
   }
 
   /**

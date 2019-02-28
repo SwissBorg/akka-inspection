@@ -6,7 +6,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata._
 import akka.inspection.ActorInspection
-import akka.inspection.manager.BroadcastActor.{BroadcastRequest, BroadcastResponse, ForwardRequest, GroupedRequest}
+import akka.inspection.manager.BroadcastActor._
 import akka.inspection.manager.state._
 import akka.stream.{ActorMaterializer, Materializer, QueueOfferResult}
 import cats.data.OptionT
@@ -82,8 +82,8 @@ class ActorInspectorManager extends Actor with ActorLogging {
    */
   private def infoRequests(s: State): Receive = {
     /* Request that have to be broadcast to be fully answered. */
-    case r: GroupRequest                  => broadcaster ! GroupedRequest(r, sender())
-    case r: InspectableActorsRequest.type => broadcaster ! GroupedRequest(r, sender())
+    case r: GroupRequest                  => broadcaster ! BroadcastRequest(r, sender())
+    case r: InspectableActorsRequest.type => broadcaster ! BroadcastRequest(r, sender())
 
     case r: RequestEvent =>
       val replyTo = sender()
@@ -91,9 +91,9 @@ class ActorInspectorManager extends Actor with ActorLogging {
         case Success(Some(response)) =>
           response match {
             /* Another manager might be able to respond. */
-            case GroupsResponse(Left(ActorNotInspectable(_)))      => broadcaster ! ForwardRequest(r, replyTo)
-            case FragmentsResponse(Left(ActorNotInspectable(_)))   => broadcaster ! ForwardRequest(r, replyTo)
-            case FragmentIdsResponse(Left(ActorNotInspectable(_))) => broadcaster ! ForwardRequest(r, replyTo)
+            case GroupsResponse(Left(ActorNotInspectable(_)))      => broadcaster ! BroadcastRequest(r, replyTo)
+            case FragmentsResponse(Left(ActorNotInspectable(_)))   => broadcaster ! BroadcastRequest(r, replyTo)
+            case FragmentIdsResponse(Left(ActorNotInspectable(_))) => broadcaster ! BroadcastRequest(r, replyTo)
 
             /*
              An inspectable actor only exists in a single manager.

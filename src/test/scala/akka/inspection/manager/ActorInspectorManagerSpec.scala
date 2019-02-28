@@ -7,6 +7,7 @@ import akka.inspection.manager.ActorInspectorManager._
 import akka.inspection.manager.state.Group
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import scala.concurrent.duration._
 
 class ActorInspectorManagerSpec
     extends TestKit(ActorSystem("ActorInspectorManagerSpec"))
@@ -39,7 +40,7 @@ class ActorInspectorManagerSpec
       expectMsg(GroupsResponse(Right(groups.toList)))
     }
 
-    "add groups to an actor in multiple steps" in {
+    "be able to add groups to an actor in multiple steps" in {
       val inspectorRef = system.actorOf(Props[ActorInspectorManager])
       val dummyRef = InspectableActorRef(system.actorOf(Props[NopActor]))
 
@@ -57,7 +58,7 @@ class ActorInspectorManagerSpec
       val dummyRef = InspectableActorRef(system.actorOf(Props[NopActor]))
 
       inspectorRef ! GroupsRequest(dummyRef.toId)
-      expectMsg(GroupsResponse(Left(ActorNotInspectable(dummyRef.toId))))
+      within(10.seconds)(expectMsg(GroupsResponse(Left(ActorNotInspectable(dummyRef.toId)))))
     }
 
     "fail when requesting the keys of an undeclared actor" in {

@@ -4,6 +4,7 @@ import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.inspection.ActorInspection.{FragmentsRequest => _, FragmentsResponse => _, _}
 import akka.inspection.ActorInspectorImpl.InspectableActorRef
 import akka.inspection.manager._
+import akka.inspection.manager.state.Group
 import akka.inspection.util.{LazyFuture, Render}
 import akka.testkit.{ImplicitSender, TestKit}
 import cats.data.OptionT
@@ -27,8 +28,8 @@ class MutableActorInspectionSpec
 
       val inspectableRef = InspectableActorRef(system.actorOf(Props[MutableActor]))
 
-
       val m = FragmentsRequest(List(FragmentId("yes")), inspectableRef.toId)
+//      val m = GroupRequest(Group("bla"))
 
 //      inspector.requestFragments(m).onComplete {
 //        case r => println(r)
@@ -47,6 +48,16 @@ class MutableActorInspectionSpec
         .map(eventually(_))
         .fold(assert(false))(identity)
         .value
+
+//      OptionT
+//        .liftF(LazyFuture(inspector.requestGroup(m)))
+//        .map {
+//          case GroupResponse(actors) => assert(actors.isEmpty)
+//          case r                     => assert(false, r)
+//        }
+//        .map(eventually(_))
+//        .fold(assert(false))(identity)
+//        .value
     }
   }
 

@@ -6,7 +6,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata._
 import akka.inspection.ActorInspection
-import akka.inspection.manager.BroadcastActor.{BroadcastResponse, BroadcastedRequest}
+import akka.inspection.manager.BroadcastActor.{BroadcastRequest, BroadcastResponse}
 import akka.inspection.manager.state._
 import akka.stream.{ActorMaterializer, Materializer, QueueOfferResult}
 import cats.data.OptionT
@@ -20,23 +20,22 @@ import scala.util.{Failure, Success}
  *
  */
 class ActorInspectorManager extends Actor with ActorLogging {
-
-  /**
-   * Broadcaster handling requests that cannot be fully answered by the manager.
-   */
-  private val broadcaster = context.system.actorOf(BroadcastActor.props(self, "actor-inspector-managers"))
-
   implicit private val ec: ExecutionContext = context.dispatcher
   implicit private val mat: Materializer = ActorMaterializer()
 
   private val replicator = DistributedData(context.system).replicator
   implicit val node: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
 
-  val DataKey: ORSetKey[ActorRef] = ORSetKey[ActorRef]("actor-inspector-managers")
+  val DataKey: ORSetKey[ActorRef] = ORSetKey[ActorRef]("broadcaster")
 
   // TODO move to some `onBla` method
   // Announce itself to the other managers.
   replicator ! Update(DataKey, ORSet.empty[ActorRef], WriteLocal)(_ :+ self)
+
+  /**
+   * Broadcaster handling requests that cannot be fully answered by the manager.
+   */
+  private val broadcaster = context.system.actorOf(BroadcastActor.props("broadcaster"))
 
   override def receive: Receive = receiveS(State.empty)
 
@@ -50,7 +49,7 @@ class ActorInspectorManager extends Actor with ActorLogging {
    * Handles broadcast requests sent by other manager's broadcaster.
    */
   private def broadcastRequests(s: State): Receive = {
-    case request: BroadcastedRequest =>
+    case request: BroadcastRequest =>
       val replyTo = sender()
 
       responseToBroadcast(request, s, replyTo).value.onComplete {
@@ -66,7 +65,7 @@ class ActorInspectorManager extends Actor with ActorLogging {
   private def inspectableActorsResponses: Receive = {
     case ActorInspection.FragmentsResponse(fragments, initiator, id) =>
       id.fold(initiator ! FragmentsResponse(Either.right(fragments))) { id =>
-        initiator ! BroadcastResponse(FragmentsResponse(Either.right(fragments)), id)
+        initiator ! BroadcastResponse(FragmentsResponse(Either.right(fragments)), initiator, id)
       }
   }
 
@@ -83,8 +82,10 @@ class ActorInspectorManager extends Actor with ActorLogging {
    */
   private def infoRequests(s: State): Receive = {
     /* Request that have to be broadcast to be fully answered. */
-    case r: GroupRequest                  => broadcaster ! r
-    case r: InspectableActorsRequest.type => broadcaster ! r
+    case r: GroupRequest =>
+      log.debug("BROADCASTING GROUP REQUEST")
+      broadcaster ! BroadcastRequest(r, sender())
+    case r: InspectableActorsRequest.type => broadcaster ! BroadcastRequest(r, sender())
 
     case r: RequestEvent =>
       val replyTo = sender()
@@ -92,9 +93,9 @@ class ActorInspectorManager extends Actor with ActorLogging {
         case Success(Some(response)) =>
           response match {
             /* Another manager might be able to respond. */
-            case GroupsResponse(Left(ActorNotInspectable(_)))      => broadcaster ! r
-            case FragmentsResponse(Left(ActorNotInspectable(_)))   => broadcaster ! r
-            case FragmentIdsResponse(Left(ActorNotInspectable(_))) => broadcaster ! r
+            case GroupsResponse(Left(ActorNotInspectable(_)))      => broadcaster ! BroadcastRequest(r, replyTo)
+            case FragmentsResponse(Left(ActorNotInspectable(_)))   => broadcaster ! BroadcastRequest(r, replyTo)
+            case FragmentIdsResponse(Left(ActorNotInspectable(_))) => broadcaster ! BroadcastRequest(r, replyTo)
 
             /*
              An inspectable actor only exists in a single manager.
@@ -111,7 +112,7 @@ class ActorInspectorManager extends Actor with ActorLogging {
       }
   }
 
-  private def responseToBroadcast(request: BroadcastedRequest,
+  private def responseToBroadcast(request: BroadcastRequest,
                                   s: State,
                                   replyTo: ActorRef): OptionT[Future, ResponseEvent] =
     _responseTo(request.request, s, replyTo, Some(request.id))

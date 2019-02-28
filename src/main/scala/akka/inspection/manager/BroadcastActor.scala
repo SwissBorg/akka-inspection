@@ -65,9 +65,7 @@ class BroadcastActor(managersKey: String) extends Actor with ActorLogging {
         }
       } else context.become(receiveS(managers, workList + (id -> (waitingFor0, maybeResponse0))))
 
-    case c @ Changed(ManagersKey) =>
-      log.debug(c.get(ManagersKey).toString)
-      context.become(receiveS(c.get(ManagersKey).elements, workList))
+    case c @ Changed(ManagersKey) => context.become(receiveS(c.get(ManagersKey).elements, workList))
   }
 }
 

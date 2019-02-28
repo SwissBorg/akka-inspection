@@ -9,7 +9,7 @@ import akka.stream.{ActorMaterializer, Materializer}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ActorInspectorServer(inspectionService: ActorInspectorImpl, system: ActorSystem) {
+class ActorInspectorServer(inspectionService: ActorInspectorImpl, system: ActorSystem, interface: String, port: Int) {
   implicit val sys: ActorSystem = system
   implicit val mat: Materializer = ActorMaterializer()
   implicit val ec: ExecutionContext = sys.dispatcher
@@ -18,8 +18,8 @@ class ActorInspectorServer(inspectionService: ActorInspectorImpl, system: ActorS
     val service: HttpRequest => Future[HttpResponse] = grpc.ActorInspectionServiceHandler(inspectionService)
 
     val bound: Future[Http.ServerBinding] = Http().bindAndHandleAsync(service,
-                                                                      interface = "127.0.0.1",
-                                                                      port = 8080,
+                                                                      interface = interface,
+                                                                      port = port,
                                                                       connectionContext =
                                                                         HttpConnectionContext(http2 = Always))
 

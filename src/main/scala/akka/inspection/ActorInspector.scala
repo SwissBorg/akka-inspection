@@ -7,17 +7,18 @@ import com.typesafe.config.ConfigFactory
 
 object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdProvider {
   override def createExtension(system: ExtendedActorSystem): ActorInspectorImpl = {
-    // Start the singleton manager
-    val actorInspectorManager = system.actorOf(ActorInspectorManager.props(), "manager")
-
-//    val conf = ConfigFactory
-//      .parseString("akka.http.server.preview.enable-http2 = on")
-//      .withFallback(ConfigFactory.defaultApplication())
+    val actorInspectorManager = system.actorOf(ActorInspectorManager.props(), "inspector-manager")
 
     val impl: ActorInspectorImpl = new ActorInspectorImpl(system, actorInspectorManager)
 
-    //    // Start server
-    new ActorInspectorServer(impl, system).run()
+    val conf = ConfigFactory.defaultApplication()
+
+    // Start server
+    new ActorInspectorServer(impl,
+                             system,
+                             conf.getString("akka.inspection.server.hostname"),
+                             conf.getInt("akka.inspection.server.port")).run()
+
     impl
   }
 

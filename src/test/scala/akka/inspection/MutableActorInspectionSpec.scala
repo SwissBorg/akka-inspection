@@ -133,9 +133,7 @@ object MutableActorInspectionSpec {
     private var i: Int = 0
 
     override def receive: Receive = withInspection {
-      case r =>
-        log.debug(r.toString)
-        i += 1
+      case r => i += 1
     }
 
     override val fragments: Map[FragmentId, Fragment] = Map(

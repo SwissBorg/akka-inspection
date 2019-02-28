@@ -65,7 +65,7 @@ object arbitrary {
   )
 
   /* --- Cogen instances --- */
-  implicit val cogenFragmentIdsRequest: Cogen[FragmentIdsRequest] = Cogen.cogenString.contramap(_.path)
+  implicit val cogenFragmentIdsRequest: Cogen[FragmentIdsRequest] = Cogen.cogenString.contramap(_.actor)
 
   implicit val cogenActorNotInspectable: Cogen[ActorNotInspectable] = cogenString.contramap(_.id)
   implicit val cogenFragmentId: Cogen[FragmentId] = cogenString.contramap(_.id)
@@ -81,7 +81,7 @@ object arbitrary {
     (a1: grpc.FragmentIdsRequest, a2: grpc.FragmentIdsRequest) => a1.actor == a2.actor
 
   implicit val eqFragmentIdsRequest: Equal[FragmentIdsRequest] = (a1: FragmentIdsRequest, a2: FragmentIdsRequest) =>
-    a1.path == a2.path
+    a1.actor == a2.actor
 
   implicit val eqFragmentIdsResponse: Equal[FragmentIdsResponse] = (a1: FragmentIdsResponse, a2: FragmentIdsResponse) =>
     a1 == a2

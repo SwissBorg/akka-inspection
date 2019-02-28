@@ -29,7 +29,7 @@ final case object InspectableActorsRequest extends RequestEvent {
     )
 }
 
-final case class GroupsRequest(path: String) extends RequestEvent {
+final case class GroupsRequest(actor: String) extends RequestEvent {
   val toGRPC: grpc.GroupsRequest = GroupsRequest.grpcIso(this)
 }
 
@@ -37,7 +37,7 @@ object GroupsRequest {
   def fromGRPC(r: grpc.GroupsRequest): GroupsRequest = grpcIso.get(r)
 
   val grpcIso: Iso[grpc.GroupsRequest, GroupsRequest] =
-    Iso[grpc.GroupsRequest, GroupsRequest](r => GroupsRequest(r.actor))(r => grpc.GroupsRequest(r.path))
+    Iso[grpc.GroupsRequest, GroupsRequest](r => GroupsRequest(r.actor))(r => grpc.GroupsRequest(r.actor))
 }
 
 final case class GroupRequest(group: Group) extends RequestEvent {
@@ -51,7 +51,7 @@ object GroupRequest {
     Iso[grpc.GroupRequest, GroupRequest](r => GroupRequest(Group(r.group)))(r => grpc.GroupRequest(r.group.name))
 }
 
-final case class FragmentIdsRequest(path: String) extends RequestEvent {
+final case class FragmentIdsRequest(actor: String) extends RequestEvent {
   val toGRPC: grpc.FragmentIdsRequest = FragmentIdsRequest.grpcIso(this)
 }
 object FragmentIdsRequest {
@@ -59,7 +59,7 @@ object FragmentIdsRequest {
 
   val grpcIso: Iso[grpc.FragmentIdsRequest, FragmentIdsRequest] =
     Iso[grpc.FragmentIdsRequest, FragmentIdsRequest](r => FragmentIdsRequest(r.actor))(
-      r => grpc.FragmentIdsRequest(r.path)
+      r => grpc.FragmentIdsRequest(r.actor)
     )
 }
 

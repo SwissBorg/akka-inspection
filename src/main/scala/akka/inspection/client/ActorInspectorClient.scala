@@ -20,10 +20,15 @@ object ActorInspectorClient {
     implicit val mat: ActorMaterializer = ActorMaterializer()
     implicit val ec: ExecutionContextExecutor = sys.dispatcher
 
-    val clientSettings = GrpcClientSettings.connectToServiceAt("127.0.0.1", 8080).withTls(false)
-    //GrpcClientSettings.fromConfig(grpc.ActorInspectionService.name)
+    val clientSettings = GrpcClientSettings
+      .connectToServiceAt(conf.getString("akka.inspection.server.hostname"), conf.getInt("akka.inspection.server.port"))
+      .withTls(false)
+
     val client: grpc.ActorInspectionService = ActorInspectionServiceClient(clientSettings)
 
-    Service.bla(Array("--group", "bla"), client)
+//    Service.execute(Array("--group", "hello"), client)
+//    Service.execute(Array("--groups", "akka://HELLOWORLD/user/$a"), client)
+//    Service.execute(Array("--fragment-ids", "akka://HELLOWORLD/user/$b"), client)
+    Service.execute(Array("--fragments", "akka://HELLOWORLD/user/$c", "yes", "no"), client)
   }
 }

@@ -4,7 +4,6 @@ import java.util.UUID
 
 import akka.actor.{Actor, ActorRef}
 import akka.inspection.ActorInspection._
-import akka.inspection.ActorInspectorImpl.InspectableActorRef.{Ack, Init}
 
 /**
  * Adds the ability to inspect the actor's state to an external service. This trait is useful for actor's using
@@ -117,4 +116,9 @@ private[inspection] object ActorInspection {
   sealed abstract class FinalizedFragment extends Product with Serializable
   final case class RenderedFragment(fragment: String) extends FinalizedFragment
   final case object UndefinedFragment extends FinalizedFragment
+
+  sealed abstract class BackPressureSignal extends Product with Serializable
+  final case object Init extends BackPressureSignal
+  final case object Ack extends BackPressureSignal
+  final case object Complete extends BackPressureSignal
 }

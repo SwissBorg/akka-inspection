@@ -10,6 +10,8 @@ import cats.data.OptionT
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{AsyncWordSpecLike, BeforeAndAfterAll, Matchers}
+import cats._
+import cats.implicits._
 
 class ActorInspectionSpec
     extends TestKit(ActorSystem("ActorInspectionSpec", ActorInspectionSpec.testConfig))
@@ -31,12 +33,16 @@ class ActorInspectionSpec
 
       inspectableRef.ref ! 42
 
-      OptionT
-        .liftF(LazyFuture(inspector.requestFragments(m)))
-        .map {
+      val assertion = for {
+        grpcResponse <- OptionT.liftF(LazyFuture(inspector.requestFragments(m.toGRPC)))
+        response <- OptionT.fromOption[LazyFuture](FragmentsResponse.fromGRPC(grpcResponse))
+      } yield
+        response match {
           case FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment1)
           case r                                   => assert(false, r)
         }
+
+      assertion
         .map(eventually(_))
         .fold(assert(false))(identity)
         .value

@@ -28,7 +28,7 @@ object Bla {
       case Some(Config(Some(group))) =>
         client.requestGroup(grpc.GroupRequest(group)).onComplete {
           case Success(grpc.GroupResponse(actors)) => println(actors)
-          case other                                   => println(other)
+          case other                               => println(other)
         }
       case _ => args.foreach(println)
     }

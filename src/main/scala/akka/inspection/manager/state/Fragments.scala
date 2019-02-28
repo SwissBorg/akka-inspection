@@ -1,7 +1,7 @@
 package akka.inspection.manager.state
 
 import akka.inspection.ActorInspection.FragmentId
-import akka.inspection.ActorInspectorImpl.InspectableActorRef
+import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 
 /**
  * Manages the state-fragments of each inspectable actor.

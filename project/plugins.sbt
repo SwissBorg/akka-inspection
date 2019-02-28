@@ -13,3 +13,5 @@ addSbtPlugin("com.typesafe.sbt" % "sbt-multi-jvm" % "0.4.0")
 // Kind-projector
 addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
 
+// Scalafmt
+addSbtPlugin("com.geirsson" % "sbt-scalafmt" % "1.5.1")

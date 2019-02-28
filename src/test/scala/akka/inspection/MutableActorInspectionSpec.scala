@@ -39,25 +39,19 @@ class MutableActorInspectionSpec
 
       inspectableRef.ref ! 42
 
-      OptionT
-        .liftF(LazyFuture(inspector.requestFragments(m)))
-        .map {
+      val assertion = for {
+        grpcResponse <- OptionT.liftF(LazyFuture(inspector.requestFragments(m.toGRPC)))
+        response <- OptionT.fromOption[LazyFuture](FragmentsResponse.fromGRPC(grpcResponse))
+      } yield
+        response match {
           case FragmentsResponse(Right(fragments)) => assert(fragments == expectedFragment1)
           case r                                   => assert(false, r)
         }
+
+      assertion
         .map(eventually(_))
         .fold(assert(false))(identity)
         .value
-
-//      OptionT
-//        .liftF(LazyFuture(inspector.requestGroup(m)))
-//        .map {
-//          case GroupResponse(actors) => assert(actors.isEmpty)
-//          case r                     => assert(false, r)
-//        }
-//        .map(eventually(_))
-//        .fold(assert(false))(identity)
-//        .value
     }
   }
 

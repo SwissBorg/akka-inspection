@@ -2,7 +2,7 @@ package akka.inspection.manager.state
 
 import akka.inspection.ActorInspection
 import akka.inspection.ActorInspection.FragmentId
-import akka.inspection.ActorInspectorImpl.InspectableActorRef
+import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import akka.stream.{Materializer, QueueOfferResult}
 

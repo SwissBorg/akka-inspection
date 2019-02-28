@@ -2,58 +2,40 @@ package akka.inspection
 
 import akka.actor.{ActorRef, ActorSystem, Extension}
 import akka.inspection.ActorInspection.FragmentId
+import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import akka.inspection.manager.state.Group
 import akka.pattern.ask
 import akka.util.Timeout
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 
-class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef) extends Extension {
-  import ActorInspectorImpl._
-
+class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef)
+    extends Extension
+    with grpc.ActorInspectionService {
   implicit val timer: Timeout = 10 seconds // TODO BEEEHHHH
+  implicit val ec: ExecutionContext = system.getDispatcher
 
   def put(ref: ActorRef, keys: Set[FragmentId], groups: Set[Group]): Unit =
     actorInspectorManager ! Put(InspectableActorRef(ref), keys, groups)
 
   def release(ref: ActorRef): Unit = actorInspectorManager ! Release(InspectableActorRef(ref))
 
-  def requestInspectableActors(request: InspectableActorsRequest.type): Future[InspectableActorsResponse] =
-    (actorInspectorManager ? request).mapTo[InspectableActorsResponse]
+  override def requestInspectableActors(in: grpc.InspectableActorsRequest): Future[grpc.InspectableActorsResponse] =
+    (actorInspectorManager ? InspectableActorsRequest.fromGRPC(in)).mapTo[InspectableActorsResponse].map(_.toGRPC)
 
-  def requestGroups(request: GroupsRequest): Future[GroupsResponse] =
-    (actorInspectorManager ? request).mapTo[GroupsResponse]
+  override def requestGroups(in: grpc.GroupsRequest): Future[grpc.GroupsResponse] =
+    (actorInspectorManager ? GroupsRequest.fromGRPC(in)).mapTo[GroupsResponse].map(_.toGRPC)
 
-  def requestGroup(request: GroupRequest): Future[GroupResponse] =
-    (actorInspectorManager ? request).mapTo[GroupResponse]
+  override def requestGroup(in: grpc.GroupRequest): Future[grpc.GroupResponse] =
+    (actorInspectorManager ? GroupRequest.fromGRPC(in)).mapTo[GroupResponse].map(_.toGRPC)
 
-  def requestFragmentIds(request: FragmentIdsRequest): Future[FragmentIdsResponse] =
-    (actorInspectorManager ? request).mapTo[FragmentIdsResponse]
+  override def requestFragmentIds(in: grpc.FragmentIdsRequest): Future[grpc.FragmentIdsResponse] =
+    (actorInspectorManager ? FragmentIdsRequest.fromGRPC(in)).mapTo[FragmentIdsResponse].map(_.toGRPC)
 
-  def requestFragments(request: FragmentsRequest): Future[FragmentsResponse] =
-   {
-     println("requesting")
-     (actorInspectorManager ? request).mapTo[FragmentsResponse]
-   }
+  override def requestFragments(in: grpc.FragmentsRequest): Future[grpc.FragmentsResponse] =
+    (actorInspectorManager ? FragmentsRequest.fromGRPC(in)).mapTo[FragmentsResponse].map(_.toGRPC)
 }
 
-object ActorInspectorImpl {
-
-  /**
-   * An [[ActorRef]] that can be inspected.
-   */
-  sealed abstract case class InspectableActorRef(ref: ActorRef) {
-    val toId: String = ref.path.toString // TODO render?
-  }
-
-  object InspectableActorRef {
-    private[inspection] def apply(ref: ActorRef): InspectableActorRef = new InspectableActorRef(ref) {}
-
-    sealed abstract class BackPressureSignal extends Product with Serializable
-    final case object Init extends BackPressureSignal
-    final case object Ack extends BackPressureSignal
-    final case object Complete extends BackPressureSignal
-  }
-}
+object ActorInspectorImpl {}

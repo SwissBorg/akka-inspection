@@ -171,5 +171,17 @@ class ActorInspectorManager extends Actor with ActorLogging {
 }
 
 object ActorInspectorManager {
+
+  /**
+   * An [[ActorRef]] that can be inspected.
+   */
+  sealed abstract case class InspectableActorRef(ref: ActorRef) {
+    val toId: String = ref.path.toString // TODO render?
+  }
+
+  object InspectableActorRef {
+    private[inspection] def apply(ref: ActorRef): InspectableActorRef = new InspectableActorRef(ref) {}
+  }
+
   def props(): Props = Props(new ActorInspectorManager)
 }

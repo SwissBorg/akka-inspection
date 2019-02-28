@@ -1,6 +1,6 @@
 package akka.inspection.manager.state
 
-import akka.inspection.ActorInspectorImpl.InspectableActorRef
+import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 
 /**
  * Manages the groups in which the inspectable actors belong.

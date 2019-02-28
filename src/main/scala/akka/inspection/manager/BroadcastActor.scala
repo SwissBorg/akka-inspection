@@ -10,6 +10,11 @@ import cats.implicits._
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
 
+/**
+  *
+  * @param replyTo
+  * @param managersKey
+  */
 class BroadcastActor(replyTo: ActorRef, managersKey: String) extends Actor {
   import BroadcastActor._
 
@@ -45,17 +50,37 @@ class BroadcastActor(replyTo: ActorRef, managersKey: String) extends Actor {
 }
 
 object BroadcastActor {
+
+  /**
+   * Wrapper around [[RequestEvent]]s to signal that the [[request]] was sent from a manager's broadcaster.
+   * @param request the wrapped request.
+   * @param id a unique identifier of the request.
+   */
   sealed abstract case class BroadcastedRequest(request: RequestEvent, id: UUID) {
-    def response(response: ResponseEvent): BroadcastResponse = BroadcastResponse.fromBroadcastedRequest(this, response)
+
+    /**
+     * @see [[BroadcastResponse.fromBroadcastedRequest()]]
+     */
+    def respondWith(response: ResponseEvent): BroadcastResponse =
+      BroadcastResponse.fromBroadcastedRequest(this, response)
   }
 
   object BroadcastedRequest {
     def apply(request: RequestEvent): BroadcastedRequest = new BroadcastedRequest(request, UUID.randomUUID()) {}
   }
 
+  /**
+   * Wrapper around [[ResponseEvent]] to signal that the [[response]] is an answer to a [[BroadcastedRequest]].
+   * @param response the wrapped response.
+   * @param id the unique identifier of the response. Must be the same as the request it responds to!
+   */
   final case class BroadcastResponse(response: ResponseEvent, id: UUID)
 
   object BroadcastResponse {
+
+    /**
+     * Helper to build a [[BroadcastResponse]] from a [[BroadcastedRequest]] that inherits its id.
+     */
     def fromBroadcastedRequest(br: BroadcastedRequest, response: ResponseEvent): BroadcastResponse =
       BroadcastResponse(response, br.id)
   }

@@ -38,20 +38,24 @@ class BroadcastActor(manager: ActorRef, managersKey: String) extends Actor with 
    */
   private def receiveS(managers: Set[ActorRef], workList: Map[UUID, (Set[ActorRef], Option[ResponseEvent])]): Receive = {
     case e: BroadcastRequest =>
+      /*
+       We always send the request back to the manager that initiated the request.
+       Even if it was forwarded because it does not know the potentially inspectable actor.
+       By doing that, if it's the only available one, the broadcast actor pushes the problem
+       of generating a failed response to the manager.
+       */
       managers.foreach(_ ! e)
       context.become(receiveS(managers, workList + (e.id -> (managers, None))))
 
-    case BroadcastResponse(responseEvent, replyTo, id) =>
+    case BroadcastResponse(partialResponse, replyTo, id) =>
       val (waitingFor, maybeResponse) =
         workList.getOrElse(id, throw new IllegalStateException(s"'$id' should have been added to the worklist!"))
 
-      log.debug(s"Waiting for: $waitingFor\n Response: $maybeResponse")
-
       val waitingFor0 = waitingFor - sender()
-      val maybeResponse0 = Some(maybeResponse.fold(responseEvent)(_ |+| responseEvent)) // TODO seems weird
 
-      val bla = sender()
-      log.debug(s"UPDATED: Waiting for: $waitingFor0\n Response: $maybeResponse0 by $bla")
+      val maybeResponse0 = Some(maybeResponse.fold(partialResponse) { response =>
+        response |+| partialResponse // merges the responses. See the `Semigroup[ResponseEvent]` for the exact semantics.
+      })
 
       // finished waiting for replies
       if (waitingFor0.isEmpty) {

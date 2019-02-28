@@ -82,6 +82,10 @@ object FragmentsRequest {
 sealed trait ResponseEvent extends Product with Serializable
 
 object ResponseEvent {
+
+  /**
+   * Merges the [[ResponseEvent]]s together if they match else picks the one on the right.
+   */
   implicit val responseEventSemigroup: Semigroup[ResponseEvent] = new Semigroup[ResponseEvent] {
     override def combine(x: ResponseEvent, y: ResponseEvent): ResponseEvent = (x, y) match {
       case (x: InspectableActorsResponse, y: InspectableActorsResponse) =>

@@ -1,3 +1,6 @@
+import com.typesafe.sbt.SbtMultiJvm.multiJvmSettings
+import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
+
 name := "akka-inspection"
 
 version := "0.0.1"
@@ -41,5 +44,5 @@ javaAgents += "org.mortbay.jetty.alpn" % "jetty-alpn-agent" % "2.0.9" % "runtime
 lazy val root = (project in file("."))
   .enablePlugins(MultiJvmPlugin)
   .configs(MultiJvm)
-
-//parallelExecution in Test := false
+  .settings(multiJvmSettings: _*)
+  .settings(parallelExecution in Test := false)

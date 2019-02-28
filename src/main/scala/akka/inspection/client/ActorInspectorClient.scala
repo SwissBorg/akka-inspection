@@ -12,9 +12,9 @@ import scala.concurrent.ExecutionContextExecutor
 
 object ActorInspectorClient {
   def main(args: Array[String]): Unit = {
-    val conf = ConfigFactory
-      .parseString("akka.http.server.preview.enable-http2 = on")
-      .withFallback(ConfigFactory.defaultApplication())
+    val conf = ConfigFactory.defaultApplication()
+//      .parseString("akka.http.server.preview.enable-http2 = on")
+//      .withFallback(ConfigFactory.defaultApplication())
 
     implicit val sys: ActorSystem = ActorSystem("CLIENT", conf)
     implicit val mat: ActorMaterializer = ActorMaterializer()

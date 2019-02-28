@@ -2,6 +2,7 @@ package akka.inspection
 
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.inspection.ActorInspection.{FragmentsRequest => _, FragmentsResponse => _, _}
+import akka.inspection.Actors.StatelessActor
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import akka.inspection.manager.state.Group
@@ -124,27 +125,6 @@ class ActorInspectionSpec
 }
 
 object ActorInspectionSpec {
-  implicit val intShow: Render[Int] = (t: Int) => t.toString
-
-  class StatelessActor extends Actor with ActorInspection[StatelessActor.State] {
-    override def receive: Receive = mainReceive(StatelessActor.State(0))
-
-    def mainReceive(s: StatelessActor.State): Receive = withInspection(s) {
-      case _ => context.become(mainReceive(s.copy(i = s.i + 1)))
-    }
-
-    override val fragments: Map[FragmentId, Fragment] = Map(
-      FragmentId("yes") -> Fragment.state(_.i),
-      FragmentId("no") -> Fragment.state(_.i + 1)
-    )
-
-    override val groups: Set[Group] = Set(Group("hello"), Group("world"))
-  }
-
-  object StatelessActor {
-    case class State(i: Int)
-  }
-
   val testConfig: Config = ConfigFactory
     .parseString {
       """

@@ -1,11 +1,12 @@
 package akka.inspection
 
-import akka.actor.{Actor, ActorSystem, Props}
+import akka.actor.{ActorSystem, Props}
 import akka.inspection.ActorInspection.{FragmentsRequest => _, FragmentsResponse => _, _}
+import akka.inspection.Actors.MutableActor
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import akka.inspection.manager.state.Group
-import akka.inspection.util.{LazyFuture, Render}
+import akka.inspection.util.LazyFuture
 import akka.testkit.{ImplicitSender, TestKit}
 import cats.data.OptionT
 import com.typesafe.config.{Config, ConfigFactory}
@@ -20,7 +21,6 @@ class MutableActorInspectionSpec
     with Matchers
     with BeforeAndAfterAll
     with Eventually {
-  import MutableActorInspectionSpec._
 
   "MutableActorInspectionSpec" must {
     "correctly inspect a specific fragment" in {
@@ -127,23 +127,6 @@ class MutableActorInspectionSpec
 }
 
 object MutableActorInspectionSpec {
-  implicit val intShow: Render[Int] = (t: Int) => t.toString
-
-  class MutableActor extends Actor with MutableActorInspection {
-    private var i: Int = 0
-
-    override def receive: Receive = withInspection {
-      case r => i += 1
-    }
-
-    override val fragments: Map[FragmentId, Fragment] = Map(
-      FragmentId("yes") -> Fragment.always(i),
-      FragmentId("no") -> Fragment.always(i + 1)
-    )
-
-    override val groups: Set[Group] = Set(Group("hello"), Group("world"))
-  }
-
   val testConfig: Config = ConfigFactory
     .parseString {
       """

@@ -14,10 +14,10 @@ object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdPr
     val conf = ConfigFactory.defaultApplication()
 
     // Start server
-    new ActorInspectorServer(impl,
-                             system,
-                             conf.getString("akka.inspection.server.hostname"),
-                             conf.getInt("akka.inspection.server.port")).run()
+//    new ActorInspectorServer(impl,
+//                             system,
+//                             conf.getString("akka.inspection.server.hostname"),
+//                             conf.getInt("akka.inspection.server.port")).run()
 
     impl
   }

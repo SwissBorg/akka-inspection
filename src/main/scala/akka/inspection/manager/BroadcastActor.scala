@@ -14,7 +14,7 @@ import scala.concurrent.duration._
  * @param replyTo
  * @param managersKey
  */
-class BroadcastActor(managersKey: String) extends Actor with ActorLogging {
+class BroadcastActor(manager: ActorRef, managersKey: String) extends Actor with ActorLogging {
   import BroadcastActor._
 
   private val replicator = DistributedData(context.system).replicator
@@ -27,11 +27,8 @@ class BroadcastActor(managersKey: String) extends Actor with ActorLogging {
    * Waits for the set of managers.
    */
   private def awaitingManagers: Receive = {
-    case g @ GetSuccess(ManagersKey, _) =>
-      log.debug(g.get(ManagersKey).elements.toString)
-      context.become(receiveS(g.get(ManagersKey).elements, Map.empty))
-    case e: RequestEvent => self ! e // cannot handle requests yet
-    case other           => log.debug(other.toString)
+    case g @ GetSuccess(ManagersKey, _) => context.become(receiveS(g.get(ManagersKey).elements, Map.empty))
+    case e: BroadcastRequest            => self ! e // cannot handle requests yet
   }
 
   /**
@@ -40,10 +37,14 @@ class BroadcastActor(managersKey: String) extends Actor with ActorLogging {
    * @param workList the responses awaiting answers from the managers.
    */
   private def receiveS(managers: Set[ActorRef], workList: Map[UUID, (Set[ActorRef], Option[ResponseEvent])]): Receive = {
-    case e: BroadcastRequest =>
+    case e: GroupedRequest =>
       managers.foreach(_ ! e)
-      // add work
       context.become(receiveS(managers, workList + (e.id -> (managers, None))))
+
+    case e: ForwardRequest =>
+      val otherManagers = managers - manager // we know the manager cannot respond successfully
+      otherManagers.foreach(_ ! e)
+      context.become(receiveS(otherManagers, workList + (e.id -> (managers, None))))
 
     case BroadcastResponse(responseEvent, replyTo, id) =>
       val (waitingFor, maybeResponse) =
@@ -74,11 +75,12 @@ class BroadcastActor(managersKey: String) extends Actor with ActorLogging {
 object BroadcastActor {
 
   /**
-   * Wrapper around [[RequestEvent]]s to signal that the [[request]] was sent from a manager's broadcaster.
-   * @param request the wrapped request.
-   * @param id a unique identifier of the request.
+   * Wrapper around [[RequestEvent]]s to signal that the request was sent from a manager's broadcaster.
    */
-  sealed abstract case class BroadcastRequest(request: RequestEvent, replyTo: ActorRef, id: UUID) {
+  sealed abstract class BroadcastRequest extends Product with Serializable {
+    val request: RequestEvent
+    val replyTo: ActorRef
+    val id: UUID
 
     /**
      * @see [[BroadcastResponse.fromBroadcastedRequest()]]
@@ -87,9 +89,29 @@ object BroadcastActor {
       BroadcastResponse.fromBroadcastedRequest(this, response)
   }
 
-  object BroadcastRequest {
-    def apply(request: RequestEvent, replyTo: ActorRef): BroadcastRequest =
-      new BroadcastRequest(request, replyTo, UUID.randomUUID()) {}
+  /**
+   * Request that has to be forwarded to another manager.
+   *
+   * @see [[BroadcastRequest]]
+   */
+  sealed abstract case class ForwardRequest(request: RequestEvent, replyTo: ActorRef, id: UUID) extends BroadcastRequest
+
+  object ForwardRequest {
+    def apply(request: RequestEvent, replyTo: ActorRef): ForwardRequest =
+      new ForwardRequest(request, replyTo, UUID.randomUUID()) {}
+  }
+
+  /**
+   * Request that needs the answer of all the managers in order to be responded to.
+   *
+   * @see [[BroadcastRequest]]
+   */
+  sealed abstract case class GroupedRequest(request: RequestEvent, replyTo: ActorRef, id: UUID) extends BroadcastRequest
+
+  object GroupedRequest {
+    def apply(request: RequestEvent, replyTo: ActorRef): GroupedRequest =
+      new GroupedRequest(request, replyTo, UUID.randomUUID()) {}
+
   }
 
   /**
@@ -109,5 +131,5 @@ object BroadcastActor {
       BroadcastResponse(response, br.replyTo, br.id)
   }
 
-  def props(managersKey: String): Props = Props(new BroadcastActor(managersKey))
+  def props(manager: ActorRef, managersKey: String): Props = Props(new BroadcastActor(manager, managersKey))
 }

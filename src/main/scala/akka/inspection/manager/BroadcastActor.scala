@@ -3,21 +3,22 @@ package akka.inspection.manager
 import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.cluster.Cluster
 import akka.cluster.ddata.Replicator._
-import akka.cluster.ddata.{DistributedData, ORSetKey}
+import akka.cluster.ddata.{DistributedData, ORSet, ORSetKey, SelfUniqueAddress}
 import cats.implicits._
 
 /**
  * Broadcasts the request to other managers and combines their responses.
  *
- * @param managersKey the distributed-data key that stores the available managers.
+ * @param managersKeyId the distributed-data key that stores the available managers.
  */
-class BroadcastActor(managersKey: String) extends Actor with ActorLogging {
+class BroadcastActor(managersKeyId: String) extends Actor with ActorLogging {
   import BroadcastActor._
 
   private val replicator = DistributedData(context.system).replicator
-  private val ManagersKey: ORSetKey[ActorRef] = ORSetKey[ActorRef](managersKey)
-  replicator ! Get(ManagersKey, ReadLocal)
+  private val ManagersKey: ORSetKey[ActorRef] = ORSetKey[ActorRef](managersKeyId)
+  implicit val node: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
 
   override def receive: Receive = awaitingManagers
 
@@ -25,7 +26,9 @@ class BroadcastActor(managersKey: String) extends Actor with ActorLogging {
    * Waits for the set of managers.
    */
   private def awaitingManagers: Receive = {
-    case g @ GetSuccess(ManagersKey, _) => context.become(receiveS(g.get(ManagersKey).elements, Map.empty))
+    case g @ GetSuccess(ManagersKey, _) =>
+      log.debug(s"------------------${g.get(ManagersKey).elements}")
+      context.become(receiveS(g.get(ManagersKey).elements, Map.empty))
     case e: BroadcastRequest            => self ! e // cannot handle requests yet
   }
 
@@ -37,6 +40,8 @@ class BroadcastActor(managersKey: String) extends Actor with ActorLogging {
    */
   private def receiveS(managers: Set[ActorRef], workList: Map[UUID, (Set[ActorRef], Option[ResponseEvent])]): Receive = {
     case e: BroadcastRequest =>
+      log.debug(s"-------------------------- $e")
+
       /*
        We always send the request back to the manager that initiated the request.
        Even if it was forwarded because it does not know the potentially inspectable actor.
@@ -46,7 +51,9 @@ class BroadcastActor(managersKey: String) extends Actor with ActorLogging {
       managers.foreach(_ ! e)
       context.become(receiveS(managers, workList + (e.id -> (managers, None))))
 
-    case BroadcastResponse(partialResponse, replyTo, id) =>
+    case b @ BroadcastResponse(partialResponse, replyTo, id) =>
+      log.debug(s"-------------------------- $b")
+
       val (waitingFor, maybeResponse) =
         workList.getOrElse(id, throw new IllegalStateException(s"'$id' should have been added to the worklist!"))
 
@@ -66,6 +73,11 @@ class BroadcastActor(managersKey: String) extends Actor with ActorLogging {
       } else context.become(receiveS(managers, workList + (id -> (waitingFor0, maybeResponse0))))
 
     case c @ Changed(ManagersKey) => context.become(receiveS(c.get(ManagersKey).elements, workList))
+  }
+
+  override def preStart(): Unit = {
+    replicator ! Get(ManagersKey, ReadLocal)
+    super.preStart()
   }
 }
 
@@ -108,5 +120,5 @@ object BroadcastActor {
       BroadcastResponse(response, br.replyTo, br.id)
   }
 
-  def props(manager: ActorRef, managersKey: String): Props = Props(new BroadcastActor(managersKey))
+  def props(managersKeyId: String): Props = Props(new BroadcastActor(managersKeyId))
 }

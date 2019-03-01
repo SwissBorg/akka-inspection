@@ -23,19 +23,15 @@ class ActorInspectorManager extends Actor with ActorLogging {
   implicit private val ec: ExecutionContext = context.dispatcher
   implicit private val mat: Materializer = ActorMaterializer()
 
+  private val managersKeyId = "broadcast"
   private val replicator = DistributedData(context.system).replicator
+  private val ManagersKey: ORSetKey[ActorRef] = ORSetKey[ActorRef](managersKeyId)
   implicit val node: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
-
-  val DataKey: ORSetKey[ActorRef] = ORSetKey[ActorRef]("broadcaster")
-
-  // TODO move to some `onBla` method
-  // Announce itself to the other managers.
-  replicator ! Update(DataKey, ORSet.empty[ActorRef], WriteLocal)(_ :+ self)
 
   /**
    * Broadcaster handling requests that cannot be fully answered by the manager.
    */
-  private val broadcaster = context.system.actorOf(BroadcastActor.props(self, "broadcaster"))
+  private val broadcaster = context.system.actorOf(BroadcastActor.props(managersKeyId))
 
   override def receive: Receive = receiveS(State.empty)
 
@@ -82,8 +78,10 @@ class ActorInspectorManager extends Actor with ActorLogging {
    */
   private def infoRequests(s: State): Receive = {
     /* Request that have to be broadcast to be fully answered. */
-    case r: GroupRequest                  => broadcaster ! BroadcastRequest(r, sender())
-    case r: InspectableActorsRequest.type => broadcaster ! BroadcastRequest(r, sender())
+    case r: GroupRequest => broadcaster ! BroadcastRequest(r, sender())
+    case r: InspectableActorsRequest.type =>
+      log.debug(s"-------------------------- $r")
+      broadcaster ! BroadcastRequest(r, sender())
 
     case r: RequestEvent =>
       val replyTo = sender()
@@ -154,18 +152,23 @@ class ActorInspectorManager extends Actor with ActorLogging {
         }
     }
 
+  override def preStart(): Unit = {
+    replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteLocal)(_ :+ self)
+    super.preStart()
+  }
+
   override def postStop(): Unit = {
-    replicator ! Update(DataKey, ORSet.empty[ActorRef], WriteLocal)(_.remove(self))
+    replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteLocal)(_.remove(self))
     super.postStop()
   }
 
   override def preRestart(reason: Throwable, message: Option[Any]): Unit = {
-    replicator ! Update(DataKey, ORSet.empty[ActorRef], WriteLocal)(_.remove(self))
+    replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteLocal)(_.remove(self))
     super.preRestart(reason, message)
   }
 
   override def postRestart(reason: Throwable): Unit = {
-    replicator ! Update(DataKey, ORSet.empty[ActorRef], WriteLocal)(_ :+ self)
+    replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteLocal)(_ :+ self)
     super.postRestart(reason)
   }
 }

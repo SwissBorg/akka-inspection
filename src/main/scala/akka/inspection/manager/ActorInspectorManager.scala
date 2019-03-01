@@ -23,15 +23,14 @@ class ActorInspectorManager extends Actor with ActorLogging {
   implicit private val ec: ExecutionContext = context.dispatcher
   implicit private val mat: Materializer = ActorMaterializer()
 
-  private val managersKeyId = "broadcast"
   private val replicator = DistributedData(context.system).replicator
-  private val ManagersKey: ORSetKey[ActorRef] = ORSetKey[ActorRef](managersKeyId)
+  private val ManagersKey: ORSetKey[ActorRef] = ORSetKey[ActorRef]("broadcast")
   implicit val node: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
 
   /**
    * Broadcaster handling requests that cannot be fully answered by the manager.
    */
-  private val broadcaster = context.system.actorOf(BroadcastActor.props(managersKeyId))
+  private val broadcaster = context.actorOf(BroadcastActor.props(ManagersKey))
 
   override def receive: Receive = receiveS(State.empty)
 
@@ -165,11 +164,6 @@ class ActorInspectorManager extends Actor with ActorLogging {
   override def preRestart(reason: Throwable, message: Option[Any]): Unit = {
     replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteLocal)(_.remove(self))
     super.preRestart(reason, message)
-  }
-
-  override def postRestart(reason: Throwable): Unit = {
-    replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteLocal)(_ :+ self)
-    super.postRestart(reason)
   }
 }
 

@@ -33,6 +33,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
   "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % Test,
   "org.typelevel" %% "cats-testkit" % "1.1.0" % Test,
+  "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.6" % Test,
   "org.scalatest" %% "scalatest" % scalatestVersion % Test
 )
 

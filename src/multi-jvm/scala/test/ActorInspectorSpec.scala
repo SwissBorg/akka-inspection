@@ -7,10 +7,13 @@ import akka.inspection.Actors.MutableActor
 import akka.inspection.manager.{InspectableActorsRequest, InspectableActorsResponse}
 import akka.remote.testkit.MultiNodeSpec
 import akka.testkit.ImplicitSender
+import org.scalatest.Assertion
 import test.helpers.{MultiNodeBasicConfig, STMultiNodeSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.{Failure, Success}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Promise}
+import scala.util.{Failure, Success, Try}
 
 class ActorInspectorSpecMultiJvmNode1 extends ActorInspectorSpec
 class ActorInspectorSpecMultiJvmNode2 extends ActorInspectorSpec
@@ -31,7 +34,10 @@ class ActorInspectorSpec extends MultiNodeSpec(MultiNodeBasicConfig) with STMult
       val node2Address = node(node2).address
       val node3Address = node(node3).address
 
-      Cluster(system).join(node1Address)
+      val p: Promise[Assertion] = Promise()
+
+      Cluster(system).joinSeedNodes(List(node1Address))
+      Cluster(system).registerOnMemberUp(enterBarrier("up"))
 
       runOn(node1) {
         val inspector = ActorInspector(system)
@@ -39,13 +45,13 @@ class ActorInspectorSpec extends MultiNodeSpec(MultiNodeBasicConfig) with STMult
 
         enterBarrier("deployed")
 
-        awaitAssert(inspector.requestInspectableActors(InspectableActorsRequest.toGRPC).onComplete {
+        p.completeWith(inspector.requestInspectableActors(InspectableActorsRequest.toGRPC).transform {
           case Success(res) =>
-            assert(InspectableActorsResponse.fromGRPC(res) == InspectableActorsResponse(List.empty))
-          case Failure(t) =>
-            assert(false, t)
-            println(s"-------------- $t") //assert(false)
+            Try(assert(InspectableActorsResponse.fromGRPC(res) == InspectableActorsResponse(List.empty)))
+          case Failure(t) => Try(assert(false, t))
         })
+
+        awaitAssert(Await.result(p.future, Duration.Inf))
       }
 
       runOn(node2, node3) {

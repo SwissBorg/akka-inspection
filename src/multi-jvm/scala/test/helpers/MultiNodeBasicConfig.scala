@@ -11,48 +11,6 @@ object MultiNodeBasicConfig extends MultiNodeConfig {
 
   val nodeList = List(node1, node2, node3)
 
-//  nodeConfig(node1)(
-//    ConfigFactory.parseString("""
-//                                |akka {
-//                                |  cluster {
-//                                |    seed-nodes = ["akka.tcp://MutableActorInspectionSpec@127.0.0.1:2551"]
-//                                |
-//                                |    # auto downing is NOT safe for production deployments.
-//                                |    # you may want to use it during development, read more about it in the docs.
-//                                |    auto-down-unreachable-after = 10s
-//                                |  }
-//                                |}
-//    """.stripMargin)
-//  )
-//
-//  nodeConfig(node2)(
-//    ConfigFactory.parseString("""
-//                                |akka {
-//                                |  cluster {
-//                                |    seed-nodes = ["akka.tcp://MutableActorInspectionSpec@127.0.0.1:2552"]
-//                                |
-//                                |    # auto downing is NOT safe for production deployments.
-//                                |    # you may want to use it during development, read more about it in the docs.
-//                                |    auto-down-unreachable-after = 10s
-//                                |  }
-//                                |}
-//    """.stripMargin)
-//  )
-//
-//  nodeConfig(node3)(
-//    ConfigFactory.parseString("""
-//                                |akka {
-//                                |  cluster {
-//                                |    seed-nodes = ["akka.tcp://MutableActorInspectionSpec@127.0.0.1:2553"]
-//                                |
-//                                |    # auto downing is NOT safe for production deployments.
-//                                |    # you may want to use it during development, read more about it in the docs.
-//                                |    auto-down-unreachable-after = 10s
-//                                |  }
-//                                |}
-//    """.stripMargin)
-//  )
-
   commonConfig(
     ConfigFactory
       .parseString {
@@ -66,7 +24,7 @@ object MultiNodeBasicConfig extends MultiNodeConfig {
           |
           |    netty.tcp {
           |      hostname = "127.0.0.1"
-          |      port = 2551
+          |      port = 0
           |    }
           |
           |    artery {
@@ -80,12 +38,14 @@ object MultiNodeBasicConfig extends MultiNodeConfig {
           |  }
           |
           |  cluster {
-          |    seed-nodes = ["akka.tcp://ActorInspectorSpec@127.0.0.1:2551"]
+          |    seed-nodes = []
           |
           |    # auto downing is NOT safe for production deployments.
           |    # you may want to use it during development, read more about it in the docs.
           |    auto-down-unreachable-after = 10s
           |  }
+          |
+          |  extensions = ["akka.cluster.ddata.DistributedData"]
           |}
       """.stripMargin
       }

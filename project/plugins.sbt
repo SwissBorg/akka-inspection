@@ -18,3 +18,6 @@ addSbtPlugin("com.geirsson" % "sbt-scalafmt" % "1.5.1")
 
 // Coursier
 addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.1.0-M11")
+
+// Scalafix
+addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.9.4")

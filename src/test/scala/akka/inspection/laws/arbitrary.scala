@@ -3,16 +3,20 @@ package akka.inspection.laws
 import akka.inspection.ActorInspection.FragmentId
 import akka.inspection.grpc
 import akka.inspection.manager._
+import cats.Eq
 import org.scalacheck.Arbitrary.{arbEither, arbString, arbitrary => getArbitrary}
 import org.scalacheck.Cogen._
 import org.scalacheck.Gen._
 import org.scalacheck.{Arbitrary, Cogen, Gen}
 import scalaz.Equal
+import org.scalacheck.ScalacheckShapeless._
 
 /**
  * Arbitrary instances for akka.inspection
  */
 object arbitrary {
+  implicit val arbResponseEvent: Arbitrary[ResponseEvent] = implicitly[Arbitrary[ResponseEvent]]
+
   implicit val arbGRPCFragmentIdsRequest: Arbitrary[grpc.FragmentIdsRequest] = Arbitrary(
     Gen.alphaNumStr.map(grpc.FragmentIdsRequest(_))
   )
@@ -94,4 +98,6 @@ object arbitrary {
 
   implicit val eqGRPCInspectableActorsRequest: Equal[grpc.InspectableActorsRequest] =
     (_: grpc.InspectableActorsRequest, _: grpc.InspectableActorsRequest) => true
+
+  implicit val eqResponseEvent: Eq[ResponseEvent] = Eq.fromUniversalEquals
 }

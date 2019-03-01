@@ -2,23 +2,25 @@ package akka.inspection.manager
 
 import java.util.UUID
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.cluster.Cluster
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.cluster.ddata.Replicator._
-import akka.cluster.ddata.{DistributedData, ORSet, ORSetKey, SelfUniqueAddress}
+import akka.cluster.ddata.{DistributedData, ORSetKey, SelfUniqueAddress}
 import cats.implicits._
+
+import scala.concurrent.duration._
 
 /**
  * Broadcasts the request to other managers and combines their responses.
  *
  * @param managersKeyId the distributed-data key that stores the available managers.
  */
-class BroadcastActor(managersKeyId: String) extends Actor with ActorLogging {
+class BroadcastActor(_managersKey: ORSetKey[ActorRef]) extends Actor with Stash with ActorLogging {
   import BroadcastActor._
 
   private val replicator = DistributedData(context.system).replicator
-  private val ManagersKey: ORSetKey[ActorRef] = ORSetKey[ActorRef](managersKeyId)
   implicit val node: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
+  private val ManagersKey = _managersKey
+  replicator ! Get(_managersKey, ReadAll(10.seconds))
 
   override def receive: Receive = awaitingManagers
 
@@ -27,9 +29,15 @@ class BroadcastActor(managersKeyId: String) extends Actor with ActorLogging {
    */
   private def awaitingManagers: Receive = {
     case g @ GetSuccess(ManagersKey, _) =>
-      log.debug(s"------------------${g.get(ManagersKey).elements}")
+//      log.debug(s"OYE-------------${g.get(ManagersKey).elements}")
+      log.debug("GETSUCCESS")
+      unstashAll()
       context.become(receiveS(g.get(ManagersKey).elements, Map.empty))
-    case e: BroadcastRequest            => self ! e // cannot handle requests yet
+
+    case GetFailure(ManagersKey, req) ⇒ log.debug("GETFAILURE")
+    case NotFound(ManagersKey, req) ⇒ log.debug(s"NOTFOUND $ManagersKey")
+
+    case _: BroadcastRequest => stash()
   }
 
   /**
@@ -59,9 +67,8 @@ class BroadcastActor(managersKeyId: String) extends Actor with ActorLogging {
 
       val waitingFor0 = waitingFor - sender()
 
-      val maybeResponse0 = Some(maybeResponse.fold(partialResponse) { response =>
-        response |+| partialResponse // merges the responses. See the `Semigroup[ResponseEvent]` for the exact semantics.
-      })
+      // merges the responses. See the `Semigroup[ResponseEvent]` for the exact semantics.
+      val maybeResponse0 = Some(maybeResponse.fold(partialResponse)(_ |+| partialResponse))
 
       // finished waiting for replies
       if (waitingFor0.isEmpty) {
@@ -73,11 +80,6 @@ class BroadcastActor(managersKeyId: String) extends Actor with ActorLogging {
       } else context.become(receiveS(managers, workList + (id -> (waitingFor0, maybeResponse0))))
 
     case c @ Changed(ManagersKey) => context.become(receiveS(c.get(ManagersKey).elements, workList))
-  }
-
-  override def preStart(): Unit = {
-    replicator ! Get(ManagersKey, ReadLocal)
-    super.preStart()
   }
 }
 
@@ -120,5 +122,5 @@ object BroadcastActor {
       BroadcastResponse(response, br.replyTo, br.id)
   }
 
-  def props(managersKeyId: String): Props = Props(new BroadcastActor(managersKeyId))
+  def props(managersKey: ORSetKey[ActorRef]): Props = Props(new BroadcastActor(managersKey))
 }

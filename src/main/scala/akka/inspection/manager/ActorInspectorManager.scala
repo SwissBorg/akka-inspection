@@ -70,19 +70,20 @@ class ActorInspectorManager extends Actor {
    * Handles the inspection specific requests.
    */
   private def infoRequests(s: State): Receive = {
-    /* Request that have to be broadcast to be fully answered. */
-    case r: GroupRequest                  => broadcaster ! BroadcastRequest(r, sender())
-    case r: InspectableActorsRequest.type => broadcaster ! BroadcastRequest(r, sender())
-
     case r: RequestEvent =>
       val replyTo = sender()
       responseTo(r, s, replyTo).value.onComplete {
         case Success(Some(response)) =>
           response match {
             /* Another manager might be able to respond. */
-            case GroupsResponse(Left(ActorNotInspectable(_)))      => broadcaster ! BroadcastRequest(r, replyTo)
-            case FragmentsResponse(Left(ActorNotInspectable(_)))   => broadcaster ! BroadcastRequest(r, replyTo)
-            case FragmentIdsResponse(Left(ActorNotInspectable(_))) => broadcaster ! BroadcastRequest(r, replyTo)
+            case GroupsResponse(Left(ActorNotInspectable(_)))    => broadcaster ! BroadcastRequest(r, response, replyTo)
+            case FragmentsResponse(Left(ActorNotInspectable(_))) => broadcaster ! BroadcastRequest(r, response, replyTo)
+            case FragmentIdsResponse(Left(ActorNotInspectable(_))) =>
+              broadcaster ! BroadcastRequest(r, response, replyTo)
+
+            /* Request that have to be broadcast to be fully answered. */
+            case _: GroupResponse             => broadcaster ! BroadcastRequest(r, response, sender())
+            case _: InspectableActorsResponse => broadcaster ! BroadcastRequest(r, response, sender())
 
             /*
              An inspectable actor only exists in a single manager.

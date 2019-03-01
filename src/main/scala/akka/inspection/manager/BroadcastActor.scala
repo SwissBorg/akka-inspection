@@ -2,7 +2,7 @@ package akka.inspection.manager
 
 import java.util.UUID
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
+import akka.actor.{Actor, ActorRef, Props, Stash, Terminated}
 import akka.cluster.ddata.Replicator._
 import akka.cluster.ddata.{DistributedData, ORSet, ORSetKey, SelfUniqueAddress}
 import cats.implicits._
@@ -26,8 +26,10 @@ class BroadcastActor(manager: ActorRef) extends Actor with Stash {
    */
   private def awaitingManagers: Receive = {
     case g @ GetSuccess(ManagersKey, _) =>
+      val managers = g.get(ManagersKey).elements
+      watchDeath(managers)
+      context.become(receiveS(managers, Map.empty))
       unstashAll()
-      context.become(receiveS(g.get(ManagersKey).elements, Map.empty))
 
     case GetFailure(ManagersKey, _) ⇒ throw new IllegalStateException("Woopsie.")
     case NotFound(ManagersKey, _) ⇒ throw new IllegalStateException("Woopsie.")
@@ -41,37 +43,62 @@ class BroadcastActor(manager: ActorRef) extends Actor with Stash {
    * @param managers the managers available in the cluster.
    * @param workList the responses awaiting answers from the managers.
    */
-  private def receiveS(managers: Set[ActorRef], workList: Map[UUID, (Set[ActorRef], Option[ResponseEvent])]): Receive = {
-    case e: BroadcastRequest =>
+  private def receiveS(managers: Set[ActorRef], workList: Map[UUID, (Set[ActorRef], ResponseEvent)]): Receive = {
+    case broadcastRequest: BroadcastRequest =>
+      // TODO comment not valid anymore
       /*
        We always send the request back to the manager that initiated the request.
        Even if it was forwarded because it does not know the potentially inspectable actor.
        By doing that, if it's the only available one, the broadcast actor pushes the problem
        of generating a failed response to the manager.
        */
-      managers.foreach(_ ! e)
-      context.become(receiveS(managers, workList + (e.id -> (managers, None))))
+      val otherManagers = managers - manager
 
-    case b @ BroadcastResponse(partialResponse, replyTo, id) =>
-      val (waitingFor, maybeResponse) =
-        workList.getOrElse(id, throw new IllegalStateException(s"'$id' should have been added to the worklist!"))
-
-      val waitingFor0 = waitingFor - sender()
-
-      // merges the responses. See the `Semigroup[ResponseEvent]` for the exact semantics.
-      val maybeResponse0 = Some(maybeResponse.fold(partialResponse)(_ |+| partialResponse))
-
-      // finished waiting for replies
-      if (waitingFor0.isEmpty) {
-        maybeResponse0.fold(throw new IllegalStateException("No response was generated even though a manager exists."))(
-          response => replyTo ! response
+      if (otherManagers.isEmpty) broadcastRequest.replyTo ! broadcastRequest.request
+      else {
+        otherManagers.foreach(_ ! broadcastRequest)
+        context.become(
+          receiveS(managers, workList + (broadcastRequest.id -> (managers, broadcastRequest.initResponse)))
         )
-      } else context.become(receiveS(managers, workList + (id -> (waitingFor0, maybeResponse0))))
+      }
+
+    case BroadcastResponse(partialResponse, replyTo, id) =>
+      workList.get(id).foreach { // TODO send an error message?
+        case (waitingFor, response) =>
+          val waitingFor0 = waitingFor - sender()
+
+          // merges the responses. See the `Semigroup[ResponseEvent]` for the exact semantics.
+          val response0 = response |+| partialResponse
+
+          // finished waiting for replies
+          if (waitingFor0.isEmpty) replyTo ! response0
+          else context.become(receiveS(managers, workList + (id -> (waitingFor0, response0))))
+      }
 
     case c @ Changed(ManagersKey) =>
-      println(s"CHANGED ${c.get(ManagersKey).elements}")
-      context.become(receiveS(c.get(ManagersKey).elements, workList))
+      val managers = c.get(ManagersKey).elements
+      watchDeath(managers)
+      context.become(receiveS(managers, workList))
+
+    case Terminated(manager) =>
+      replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteAll(10 seconds))(_.remove(manager))
+      context.become(receiveS(managers - manager, update(workList, manager)))
   }
+
+  private def watchDeath(managers: Set[ActorRef]): Unit = managers.foreach(context.watch)
+
+  /**
+   * Removes the `stopWaitingFor` actor from the `workList` and "forgets" about
+   * work elements that, after removal, are not waiting on any manager anymore.
+   */
+  private def update(workList: Map[UUID, (Set[ActorRef], ResponseEvent)],
+                     stopWaitingFor: ActorRef): Map[UUID, (Set[ActorRef], ResponseEvent)] =
+    workList.flatMap {
+      case (id, (waitingFor, response)) =>
+        val waitingFor0 = waitingFor - stopWaitingFor
+        if (waitingFor0.isEmpty) None
+        else Some((id, (waitingFor0, response)))
+    }
 }
 
 object BroadcastActor {
@@ -82,7 +109,10 @@ object BroadcastActor {
    * @param replyTo the actor that originated the request.
    * @param id the unique identifier of the request.
    */
-  sealed abstract case class BroadcastRequest(request: RequestEvent, replyTo: ActorRef, id: UUID) {
+  sealed abstract case class BroadcastRequest(request: RequestEvent,
+                                              initResponse: ResponseEvent,
+                                              replyTo: ActorRef,
+                                              id: UUID) {
 
     /**
      * @see [[BroadcastResponse.fromBroadcastedRequest()]]
@@ -92,8 +122,8 @@ object BroadcastActor {
   }
 
   object BroadcastRequest {
-    def apply(request: RequestEvent, replyTo: ActorRef): BroadcastRequest =
-      new BroadcastRequest(request, replyTo, UUID.randomUUID()) {}
+    def apply(request: RequestEvent, initResponse: ResponseEvent, replyTo: ActorRef): BroadcastRequest =
+      new BroadcastRequest(request, initResponse, replyTo, UUID.randomUUID()) {}
   }
 
   /**

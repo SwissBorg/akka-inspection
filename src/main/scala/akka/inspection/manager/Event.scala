@@ -6,7 +6,7 @@ import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager.state.Group
 import cats.implicits._
 import cats.kernel.Semigroup
-import monocle.{Getter, Iso, Prism}
+import monocle.{Iso, Prism}
 
 sealed abstract class Event extends RequestEvent with ResponseEvent with SubscriptionEvent
 
@@ -89,7 +89,7 @@ object ResponseEvent {
   implicit val responseEventSemigroup: Semigroup[ResponseEvent] = new Semigroup[ResponseEvent] {
     override def combine(x: ResponseEvent, y: ResponseEvent): ResponseEvent = (x, y) match {
       case (x: InspectableActorsResponse, y: InspectableActorsResponse) =>
-        InspectableActorsResponse(x.inspectable ++ y.inspectable)
+        InspectableActorsResponse(x.inspectableActors ++ y.inspectableActors)
 
       case (x: GroupsResponse, y: GroupsResponse) =>
         val xyGroups = (x.group, y.group) match {
@@ -99,7 +99,7 @@ object ResponseEvent {
         }
         GroupsResponse(xyGroups)
 
-      case (x: GroupResponse, y: GroupResponse)             => GroupResponse(x.paths ++ y.paths)
+      case (x: GroupResponse, y: GroupResponse)             => GroupResponse(x.inspectableActors ++ y.inspectableActors)
       case (_: FragmentIdsResponse, y: FragmentIdsResponse) => y
       case (_: FragmentsResponse, y: FragmentsResponse)     => y
       case _                                                => y
@@ -107,7 +107,7 @@ object ResponseEvent {
   }
 }
 
-final case class InspectableActorsResponse(inspectable: List[String]) extends ResponseEvent {
+final case class InspectableActorsResponse(inspectableActors: List[String]) extends ResponseEvent {
   val toGRPC: grpc.InspectableActorsResponse = InspectableActorsResponse.grpcIso(this)
 }
 
@@ -117,7 +117,7 @@ object InspectableActorsResponse {
   val grpcIso: Iso[grpc.InspectableActorsResponse, InspectableActorsResponse] =
     Iso[grpc.InspectableActorsResponse, InspectableActorsResponse](
       r => InspectableActorsResponse(r.inspectableActors.toList)
-    )(r => grpc.InspectableActorsResponse(r.inspectable))
+    )(r => grpc.InspectableActorsResponse(r.inspectableActors))
 }
 
 final case class GroupsResponse(group: Either[ActorNotInspectable, List[Group]]) extends ResponseEvent {
@@ -141,14 +141,17 @@ object GroupsResponse {
     }
 }
 
-final case class GroupResponse(paths: Set[InspectableActorRef]) extends ResponseEvent {
-  val toGRPC: grpc.GroupResponse = GroupResponse.grpcGetter.get(this)
+final case class GroupResponse(inspectableActors: List[String]) extends ResponseEvent {
+  val toGRPC: grpc.GroupResponse = GroupResponse.grpcIso(this)
 }
 
 object GroupResponse {
-  val grpcGetter: Getter[GroupResponse, grpc.GroupResponse] = Getter[GroupResponse, grpc.GroupResponse] {
-    case GroupResponse(paths) => grpc.GroupResponse(paths.toSeq.map(_.toId))
-  }
+  def fromGRPC(r: grpc.GroupResponse): GroupResponse = grpcIso.get(r)
+
+  val grpcIso: Iso[grpc.GroupResponse, GroupResponse] =
+    Iso[grpc.GroupResponse, GroupResponse](r => GroupResponse(r.inspectableActors.toList))(
+      r => grpc.GroupResponse(r.inspectableActors)
+    )
 }
 
 final case class FragmentIdsResponse(keys: Either[ActorNotInspectable, List[FragmentId]]) extends ResponseEvent {

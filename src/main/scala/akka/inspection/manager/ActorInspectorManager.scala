@@ -2,9 +2,7 @@ package akka.inspection.manager
 
 import java.util.UUID
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.cluster.ddata.Replicator._
-import akka.cluster.ddata._
+import akka.actor.{Actor, ActorRef, Props}
 import akka.inspection.ActorInspection
 import akka.inspection.manager.BroadcastActor._
 import akka.inspection.manager.state._
@@ -19,18 +17,14 @@ import scala.util.{Failure, Success}
  * Manages all the requests to inspect actors.
  *
  */
-class ActorInspectorManager extends Actor with ActorLogging {
+class ActorInspectorManager extends Actor {
   implicit private val ec: ExecutionContext = context.dispatcher
   implicit private val mat: Materializer = ActorMaterializer()
-
-  private val replicator = DistributedData(context.system).replicator
-  private val ManagersKey: ORSetKey[ActorRef] = ORSetKey[ActorRef]("broadcast")
-  implicit val node: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
 
   /**
    * Broadcaster handling requests that cannot be fully answered by the manager.
    */
-  private val broadcaster = context.actorOf(BroadcastActor.props(ManagersKey))
+  private val broadcaster = context.actorOf(BroadcastActor.props(self))
 
   override def receive: Receive = receiveS(State.empty)
 
@@ -77,10 +71,8 @@ class ActorInspectorManager extends Actor with ActorLogging {
    */
   private def infoRequests(s: State): Receive = {
     /* Request that have to be broadcast to be fully answered. */
-    case r: GroupRequest => broadcaster ! BroadcastRequest(r, sender())
-    case r: InspectableActorsRequest.type =>
-      log.debug(s"-------------------------- $r")
-      broadcaster ! BroadcastRequest(r, sender())
+    case r: GroupRequest                  => broadcaster ! BroadcastRequest(r, sender())
+    case r: InspectableActorsRequest.type => broadcaster ! BroadcastRequest(r, sender())
 
     case r: RequestEvent =>
       val replyTo = sender()
@@ -128,9 +120,9 @@ class ActorInspectorManager extends Actor with ActorLogging {
                           replyTo: ActorRef,
                           id: Option[UUID]): OptionT[Future, ResponseEvent] =
     request match {
-      case InspectableActorsRequest => OptionT.pure(InspectableActorsResponse(s.inspectableActorIds.toList))
+      case InspectableActorsRequest => OptionT.pure(InspectableActorsResponse(s.inspectableActorIds.toList.map(_.toId)))
       case GroupsRequest(id)        => OptionT.pure(GroupsResponse(s.groups(id).map(_.toList)))
-      case GroupRequest(group)      => OptionT.pure(GroupResponse(s.inGroup(group)))
+      case GroupRequest(group)      => OptionT.pure(GroupResponse(s.inGroup(group).toList.map(_.toId)))
       case FragmentIdsRequest(id)   => OptionT.pure(FragmentIdsResponse(s.stateFragmentIds(id).map(_.toList)))
 
       case FragmentsRequest(fragments, actor) =>
@@ -150,21 +142,6 @@ class ActorInspectorManager extends Actor with ActorLogging {
           case Left(err) => OptionT.pure(FragmentsResponse(Either.left(err)))
         }
     }
-
-  override def preStart(): Unit = {
-    replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteLocal)(_ :+ self)
-    super.preStart()
-  }
-
-  override def postStop(): Unit = {
-    replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteLocal)(_.remove(self))
-    super.postStop()
-  }
-
-  override def preRestart(reason: Throwable, message: Option[Any]): Unit = {
-    replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteLocal)(_.remove(self))
-    super.preRestart(reason, message)
-  }
 }
 
 object ActorInspectorManager {

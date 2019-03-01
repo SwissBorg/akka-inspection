@@ -1,12 +1,12 @@
 package akka.inspection
 
-import akka.actor.{Actor, ActorSystem, Props}
+import akka.actor.{ActorSystem, Props}
 import akka.inspection.ActorInspection.{FragmentsRequest => _, FragmentsResponse => _, _}
 import akka.inspection.Actors.StatelessActor
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import akka.inspection.manager.state.Group
-import akka.inspection.util.{LazyFuture, Render}
+import akka.inspection.util.LazyFuture
 import akka.testkit.{ImplicitSender, TestKit}
 import cats.data.OptionT
 import com.typesafe.config.{Config, ConfigFactory}
@@ -20,7 +20,6 @@ class ActorInspectionSpec
     with Matchers
     with BeforeAndAfterAll
     with Eventually {
-  import ActorInspectionSpec._
 
   "ActorInspectionSpec" must {
     "correctly inspect a specific fragment" in {
@@ -79,7 +78,7 @@ class ActorInspectionSpec
       val inspector = ActorInspector(system)
 
       val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
-      val expectedGroups = List(Group("hello"), Group("world"))
+      val expectedGroups = List(Group("goodbye"), Group("universe"))
 
       val assertion = for {
         grpcResponse <- OptionT.liftF(LazyFuture(inspector.requestGroups(GroupsRequest(inspectableRef.toId).toGRPC)))

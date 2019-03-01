@@ -7,7 +7,7 @@ import akka.inspection.manager._
 import akka.stream.{Materializer, QueueOfferResult}
 
 import scala.collection.immutable.Queue
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 final private[manager] case class State(
   private val inspectableActors: InspectableActors,
@@ -15,7 +15,7 @@ final private[manager] case class State(
   private val groups: Groups,
   private val sourceQueues: SourceQueues[ActorInspection.FragmentsRequest],
   private val requestQueue: Queue[ResponseEvent]
-)(implicit context: ExecutionContext, materializer: Materializer) {
+)(implicit materializer: Materializer) {
   def put(ref: InspectableActorRef, keys: Set[FragmentId], groups: Set[Group]): State =
     copy(
       inspectableActors = inspectableActors.add(ref),
@@ -33,10 +33,10 @@ final private[manager] case class State(
     )
 
   def offer(request: ActorInspection.FragmentsRequest,
-            actor: String)(implicit ec: ExecutionContext): Either[ActorNotInspectable, Future[QueueOfferResult]] =
+            actor: String): Either[ActorNotInspectable, Future[QueueOfferResult]] =
     inspectableActors.fromId(actor).map(sourceQueues.offer(request, _))
 
-  def inspectableActorIds: Set[String] = inspectableActors.actorIds
+  def inspectableActorIds: Set[InspectableActorRef] = inspectableActors.actorIds
 
   def groups(id: String): Either[ActorNotInspectable, Set[Group]] =
     inspectableActors.fromId(id).map(groups.groups)
@@ -54,7 +54,7 @@ final private[manager] case class State(
 }
 
 private[manager] object State {
-  def empty(implicit context: ExecutionContext, materializer: Materializer): State =
+  def empty(implicit materializer: Materializer): State =
     State(inspectableActors = InspectableActors.empty,
           stateFragments = Fragments.empty,
           groups = Groups.empty,

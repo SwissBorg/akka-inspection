@@ -14,7 +14,7 @@ final private[manager] case class InspectableActors(private val actors: Set[Insp
 
   def actorRefs: Set[InspectableActorRef] = actors
 
-  def actorIds: Set[String] = actors.map(_.toId)
+  def actorIds: Set[InspectableActorRef] = actors
 
   def fromId(s: String): Either[ActorNotInspectable, InspectableActorRef] =
     actors.find(_.toId == s).toRight(ActorNotInspectable(s))

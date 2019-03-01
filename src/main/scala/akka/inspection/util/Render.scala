@@ -1,7 +1,5 @@
 package akka.inspection.util
 
-import akka.protobuf.GeneratedMessage
-
 trait Render[T] {
   def render(t: T): String
 }

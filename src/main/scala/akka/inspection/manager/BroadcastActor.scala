@@ -4,23 +4,20 @@ import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.cluster.ddata.Replicator._
-import akka.cluster.ddata.{DistributedData, ORSetKey, SelfUniqueAddress}
+import akka.cluster.ddata.{DistributedData, ORSet, ORSetKey, SelfUniqueAddress}
 import cats.implicits._
 
 import scala.concurrent.duration._
 
-/**
- * Broadcasts the request to other managers and combines their responses.
- *
- * @param managersKeyId the distributed-data key that stores the available managers.
- */
-class BroadcastActor(_managersKey: ORSetKey[ActorRef]) extends Actor with Stash with ActorLogging {
+class BroadcastActor(manager: ActorRef) extends Actor with Stash {
   import BroadcastActor._
 
   private val replicator = DistributedData(context.system).replicator
+  private val ManagersKey: ORSetKey[ActorRef] = ORSetKey[ActorRef]("broadcast")
   implicit val node: SelfUniqueAddress = DistributedData(context.system).selfUniqueAddress
-  private val ManagersKey = _managersKey
-  replicator ! Get(_managersKey, ReadAll(10.seconds))
+  replicator ! Subscribe(ManagersKey, self)
+  replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteAll(10 seconds))(_ :+ manager)
+  replicator ! Get(ManagersKey, ReadAll(10 seconds))
 
   override def receive: Receive = awaitingManagers
 
@@ -29,13 +26,11 @@ class BroadcastActor(_managersKey: ORSetKey[ActorRef]) extends Actor with Stash 
    */
   private def awaitingManagers: Receive = {
     case g @ GetSuccess(ManagersKey, _) =>
-//      log.debug(s"OYE-------------${g.get(ManagersKey).elements}")
-      log.debug("GETSUCCESS")
       unstashAll()
       context.become(receiveS(g.get(ManagersKey).elements, Map.empty))
 
-    case GetFailure(ManagersKey, req) ⇒ log.debug("GETFAILURE")
-    case NotFound(ManagersKey, req) ⇒ log.debug(s"NOTFOUND $ManagersKey")
+    case GetFailure(ManagersKey, _) ⇒ throw new IllegalStateException("Woopsie.")
+    case NotFound(ManagersKey, _) ⇒ throw new IllegalStateException("Woopsie.")
 
     case _: BroadcastRequest => stash()
   }
@@ -48,8 +43,6 @@ class BroadcastActor(_managersKey: ORSetKey[ActorRef]) extends Actor with Stash 
    */
   private def receiveS(managers: Set[ActorRef], workList: Map[UUID, (Set[ActorRef], Option[ResponseEvent])]): Receive = {
     case e: BroadcastRequest =>
-      log.debug(s"-------------------------- $e")
-
       /*
        We always send the request back to the manager that initiated the request.
        Even if it was forwarded because it does not know the potentially inspectable actor.
@@ -60,8 +53,6 @@ class BroadcastActor(_managersKey: ORSetKey[ActorRef]) extends Actor with Stash 
       context.become(receiveS(managers, workList + (e.id -> (managers, None))))
 
     case b @ BroadcastResponse(partialResponse, replyTo, id) =>
-      log.debug(s"-------------------------- $b")
-
       val (waitingFor, maybeResponse) =
         workList.getOrElse(id, throw new IllegalStateException(s"'$id' should have been added to the worklist!"))
 
@@ -72,14 +63,14 @@ class BroadcastActor(_managersKey: ORSetKey[ActorRef]) extends Actor with Stash 
 
       // finished waiting for replies
       if (waitingFor0.isEmpty) {
-        maybeResponse0.fold(throw new IllegalStateException("No response was generated even though a manager exists.")) {
-          response =>
-            log.debug(s"Sending response: $response")
-            replyTo ! response
-        }
+        maybeResponse0.fold(throw new IllegalStateException("No response was generated even though a manager exists."))(
+          response => replyTo ! response
+        )
       } else context.become(receiveS(managers, workList + (id -> (waitingFor0, maybeResponse0))))
 
-    case c @ Changed(ManagersKey) => context.become(receiveS(c.get(ManagersKey).elements, workList))
+    case c @ Changed(ManagersKey) =>
+      println(s"CHANGED ${c.get(ManagersKey).elements}")
+      context.become(receiveS(c.get(ManagersKey).elements, workList))
   }
 }
 
@@ -122,5 +113,5 @@ object BroadcastActor {
       BroadcastResponse(response, br.replyTo, br.id)
   }
 
-  def props(managersKey: ORSetKey[ActorRef]): Props = Props(new BroadcastActor(managersKey))
+  def props(manager: ActorRef): Props = Props(new BroadcastActor(manager))
 }

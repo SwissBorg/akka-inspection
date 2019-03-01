@@ -2,14 +2,12 @@ package test.helpers
 
 import akka.remote.testconductor.RoleName
 import akka.remote.testkit.MultiNodeConfig
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.ConfigFactory
 
 object MultiNodeBasicConfig extends MultiNodeConfig {
   val node1: RoleName = role("node1")
   val node2: RoleName = role("node2")
   val node3: RoleName = role("node3")
-
-  val nodeList = List(node1, node2, node3)
 
   commonConfig(
     ConfigFactory

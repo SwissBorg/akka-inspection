@@ -9,7 +9,7 @@ object Actors {
     private var i: Int = 0
 
     override def receive: Receive = withInspection {
-      case r => i += 1
+      case _ => i += 1
     }
 
     override val fragments: Map[FragmentId, Fragment] = Map(
@@ -32,7 +32,7 @@ object Actors {
       FragmentId("no") -> Fragment.state(_.i + 1)
     )
 
-    override val groups: Set[Group] = Set(Group("hello"), Group("world"))
+    override val groups: Set[Group] = Set(Group("goodbye"), Group("universe"))
   }
 
   object StatelessActor {

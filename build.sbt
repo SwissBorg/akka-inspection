@@ -47,3 +47,5 @@ lazy val root = (project in file("."))
   .configs(MultiJvm)
   .settings(multiJvmSettings: _*)
   .settings(parallelExecution in Test := false)
+
+scalacOptions += "-Ywarn-unused"

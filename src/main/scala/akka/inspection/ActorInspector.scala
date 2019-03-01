@@ -2,7 +2,6 @@ package akka.inspection
 
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
 import akka.inspection.manager.ActorInspectorManager
-import akka.inspection.server.ActorInspectorServer
 import com.typesafe.config.ConfigFactory
 
 object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdProvider {
@@ -11,7 +10,7 @@ object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdPr
 
     val impl: ActorInspectorImpl = new ActorInspectorImpl(system, actorInspectorManager)
 
-    val conf = ConfigFactory.defaultApplication()
+    ConfigFactory.defaultApplication()
 
     // Start server
 //    new ActorInspectorServer(impl,

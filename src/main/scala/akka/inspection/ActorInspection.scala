@@ -3,7 +3,6 @@ package akka.inspection
 import java.util.UUID
 
 import akka.actor.{Actor, ActorRef}
-import akka.inspection.ActorInspection._
 
 /**
  * Adds the ability to inspect the actor's state to an external service. This trait is useful for actor's using

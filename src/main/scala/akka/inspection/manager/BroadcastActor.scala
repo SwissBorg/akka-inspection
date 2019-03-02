@@ -44,7 +44,7 @@ class BroadcastActor(manager: ActorRef) extends Actor with Stash {
    * @param workList the responses awaiting answers from the managers.
    */
   private def receiveS(managers: Set[ActorRef], workList: Map[UUID, (Set[ActorRef], ResponseEvent)]): Receive = {
-    case broadcastRequest: BroadcastRequest =>
+    case broadcastRequest @ BroadcastRequest(_, initResponse, replyTo, id) =>
       // TODO comment not valid anymore
       /*
        We always send the request back to the manager that initiated the request.
@@ -54,11 +54,11 @@ class BroadcastActor(manager: ActorRef) extends Actor with Stash {
        */
       val otherManagers = managers - manager
 
-      if (otherManagers.isEmpty) broadcastRequest.replyTo ! broadcastRequest.request
+      if (otherManagers.isEmpty) replyTo ! initResponse
       else {
         otherManagers.foreach(_ ! broadcastRequest)
         context.become(
-          receiveS(managers, workList + (broadcastRequest.id -> (managers, broadcastRequest.initResponse)))
+          receiveS(managers, workList + (id -> (otherManagers, initResponse)))
         )
       }
 

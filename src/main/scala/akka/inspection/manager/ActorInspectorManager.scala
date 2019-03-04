@@ -69,10 +69,10 @@ class ActorInspectorManager extends Actor {
    * Handles the subscription events.
    */
   private def subscriptionEvents(s: State): Receive = {
-    case p@Put(ref, keys0, groups0) =>
+    case p @ Put(ref, keys0, groups0) =>
       println(p)
       context.become(receiveS(s.put(ref, keys0, groups0)))
-    case Release(ref)             => context.become(receiveS(s.release(ref)))
+    case Release(ref) => context.become(receiveS(s.release(ref)))
   }
 
   /**

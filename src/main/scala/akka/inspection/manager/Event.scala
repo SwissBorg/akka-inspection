@@ -178,6 +178,7 @@ object FragmentIdsResponse {
           grpc.FragmentIdsResponse.Res.FragmentIds(grpc.FragmentIdsResponse.FragmentIds(fragmentIds.map(_.id)))
         )
 
+      // TODO add case!
       case FragmentIdsResponse(Left(ActorNotInspectable(id))) =>
         grpc.FragmentIdsResponse(grpc.FragmentIdsResponse.Res.Error(grpc.Error.ActorNotInspectable(id)))
     }

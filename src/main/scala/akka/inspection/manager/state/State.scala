@@ -33,8 +33,10 @@ final private[manager] case class State(
     )
 
   def offer(request: ActorInspection.FragmentEvent,
-            actor: String): Either[ActorNotInspectable, Future[QueueOfferResult]] =
+            actor: String): Either[ActorNotInspectable, Future[QueueOfferResult]] = {
+    println(inspectableActors)
     inspectableActors.fromId(actor).map(sourceQueues.offer(request, _))
+  }
 
   def inspectableActorIds: Set[InspectableActorRef] = inspectableActors.actorIds
 

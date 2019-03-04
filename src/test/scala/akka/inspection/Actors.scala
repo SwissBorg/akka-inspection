@@ -2,7 +2,6 @@ package akka.inspection
 
 import akka.actor.Actor
 import akka.inspection.ActorInspection.FragmentId
-import akka.inspection.main.Main.StatelessActor
 import akka.inspection.manager.state.Group
 
 object Actors {

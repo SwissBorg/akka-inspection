@@ -28,7 +28,6 @@ trait MutableActorInspection extends ActorInspection with ActorLogging { this: A
   final def withInspection(r: Receive): Receive = inspect("receive").orElse(r)
 
   override def aroundPreStart(): Unit = {
-    super.aroundPreStart()
     ActorInspector(context.system).put(self, fragments.keySet, groups)
   }
 }

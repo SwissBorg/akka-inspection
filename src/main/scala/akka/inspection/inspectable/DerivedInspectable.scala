@@ -14,9 +14,6 @@ import shapeless.{::, Cached, HList, HNil, LabelledGeneric, Lazy, Strict, Witnes
 sealed trait DerivedInspectable[A] extends Inspectable[A]
 
 object Bla extends App {
-//  implicit def a[A]: Render[A] = _.toString
-//  implicit val l: Render[List[Int]] = _.toString
-
   val baz: Inspectable[Baz] = DerivedInspectable.gen
   println(baz.fragments)
   println(baz.fragments(FragmentId("bar")).run(Baz(Bar(5, List(1, 2, 3)))))
@@ -47,6 +44,7 @@ object DerivedInspectable {
                                                  T: DerivedInspectable[T]): DerivedInspectable[FieldType[K, H] :: T] =
     new DerivedInspectable[FieldType[K, H] :: T] {
       override def fragments: Map[ActorInspection.FragmentId, inspection.Fragment[FieldType[K, H] :: T]] =
+        // TODO MAP!!
         T.fragments.mapValues(
           _.contramap[FieldType[K, H] :: T](_.tail)
         ) + (FragmentId(K.value.name) -> Fragment.state(_.head)(H.value))

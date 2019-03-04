@@ -39,10 +39,10 @@ class ActorInspectorManager extends Actor {
    */
   private def broadcastRequests(s: State): Receive = {
     case request: BroadcastRequest =>
-      val replyTo = sender()
+      val originalRequester = sender()
 
-      responseToBroadcast(request, s, replyTo).value.onComplete {
-        case Success(Some(response)) => replyTo ! request.respondWith(response)
+      responseToBroadcast(request, s, originalRequester).value.onComplete {
+        case Success(Some(response)) => originalRequester ! request.respondWith(response)
         case Success(None)           => () // no need to respond
         case Failure(t)              => throw new IllegalStateException(t)
       }
@@ -52,9 +52,11 @@ class ActorInspectorManager extends Actor {
    * Handles responses received from inspectable actors.
    */
   private def inspectableActorsResponses: Receive = {
-    case ActorInspection.FragmentIdsResponse(state, fragmentIds, initiator, id) =>
-      id.fold(initiator ! FragmentIdsResponse(Either.right(fragmentIds.toList))) { id =>
-        initiator ! BroadcastResponse(FragmentIdsResponse(Either.right(fragmentIds.toList)), initiator, id)
+    case ActorInspection.FragmentIdsResponse(state, fragmentIds, originalRequester, id) =>
+      id.fold(originalRequester ! FragmentIdsResponse(Either.right(fragmentIds.toList))) { id =>
+        originalRequester ! BroadcastResponse(FragmentIdsResponse(Either.right(fragmentIds.toList)),
+                                              originalRequester,
+                                              id)
       }
 
     case ActorInspection.FragmentsResponse(fragments, initiator, id) =>
@@ -81,14 +83,13 @@ class ActorInspectorManager extends Actor {
         case Success(Some(response)) =>
           response match {
             /* Another manager might be able to respond. */
-            case GroupsResponse(Left(ActorNotInspectable(_)))    => broadcaster ! BroadcastRequest(r, response, replyTo)
-            case FragmentsResponse(Left(ActorNotInspectable(_))) => broadcaster ! BroadcastRequest(r, response, replyTo)
-            case FragmentIdsResponse(Left(ActorNotInspectable(_))) =>
-              broadcaster ! BroadcastRequest(r, response, replyTo)
+            case GroupsResponse(Left(_))      => broadcaster ! BroadcastRequest(r, response, replyTo)
+            case FragmentsResponse(Left(_))   => broadcaster ! BroadcastRequest(r, response, replyTo)
+            case FragmentIdsResponse(Left(_)) => broadcaster ! BroadcastRequest(r, response, replyTo)
 
             /* Request that have to be broadcast to be fully answered. */
-            case _: GroupResponse             => broadcaster ! BroadcastRequest(r, response, sender())
-            case _: InspectableActorsResponse => broadcaster ! BroadcastRequest(r, response, sender())
+            case _: GroupResponse             => broadcaster ! BroadcastRequest(r, response, replyTo)
+            case _: InspectableActorsResponse => broadcaster ! BroadcastRequest(r, response, replyTo)
 
             /*
              An inspectable actor only exists in a single manager.
@@ -107,23 +108,23 @@ class ActorInspectorManager extends Actor {
 
   private def responseToBroadcast(request: BroadcastRequest,
                                   s: State,
-                                  replyTo: ActorRef): OptionT[Future, ResponseEvent] =
-    _responseTo(request.request, s, replyTo, Some(request.id))
+                                  originalRequester: ActorRef): OptionT[Future, ResponseEvent] =
+    _responseTo(request.request, s, originalRequester, Some(request.id))
 
-  private def responseTo(request: RequestEvent, s: State, replyTo: ActorRef): OptionT[Future, ResponseEvent] =
-    _responseTo(request, s, replyTo, None)
+  private def responseTo(request: RequestEvent, s: State, originalRequester: ActorRef): OptionT[Future, ResponseEvent] =
+    _responseTo(request, s, originalRequester, None)
 
   /**
    * Create a response to the `request`.
    * @param request the request to respond to.
    * @param s the state of the actor.
-   * @param replyTo who to reply to in case of a `ActorInspection.FragmentRequest`.
+   * @param originalRequester who to reply to in case of a `ActorInspection.FragmentRequest`.
    * @param id the id of the request if available.
    * @return a potential response.
    */
   private def _responseTo(request: RequestEvent,
                           s: State,
-                          replyTo: ActorRef,
+                          originalRequester: ActorRef,
                           id: Option[UUID]): OptionT[Future, ResponseEvent] =
     request match {
       case InspectableActorsRequest => OptionT.pure(InspectableActorsResponse(s.inspectableActorIds.toList.map(_.toId)))
@@ -131,7 +132,7 @@ class ActorInspectorManager extends Actor {
       case GroupRequest(group)      => OptionT.pure(GroupResponse(s.inGroup(group).toList.map(_.toId)))
 
       case FragmentsRequest(fragments, actor) =>
-        s.offer(ActorInspection.FragmentsRequest(fragments, self, replyTo, id), actor) match {
+        s.offer(ActorInspection.FragmentsRequest(fragments, self, originalRequester, id), actor) match {
           case Right(m) =>
             OptionT[Future, ResponseEvent](m.map {
               case QueueOfferResult.Enqueued =>
@@ -150,7 +151,7 @@ class ActorInspectorManager extends Actor {
       // TODO duplication with above
       // TODO not always go to actor?
       case FragmentIdsRequest(actor) =>
-        s.offer(ActorInspection.FragmentIdsRequest(self, replyTo, id), actor) match {
+        s.offer(ActorInspection.FragmentIdsRequest(self, originalRequester, id), actor) match {
           case Right(m) =>
             OptionT[Future, ResponseEvent](m.map {
               case QueueOfferResult.Enqueued =>

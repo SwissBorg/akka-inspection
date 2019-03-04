@@ -30,8 +30,8 @@ trait ActorInspection extends Actor {
     val fragments0 = Inspectable[S].fragments(s)
 
     {
-      case FragmentIdsRequest(replyTo, initiator, id) =>
-        replyTo ! FragmentIdsResponse(name, fragments0.keySet, initiator, id)
+      case f @ FragmentIdsRequest(replyTo, originalRequester, id) =>
+        replyTo ! FragmentIdsResponse(name, fragments0.keySet, originalRequester, id)
 
       case FragmentsRequest(fragmentIds, replyTo, initiator, id) =>
         val response = fragmentIds.foldLeft(FragmentsResponse(initiator, id)) {
@@ -64,18 +64,18 @@ trait ActorInspection extends Actor {
 private[inspection] object ActorInspection {
 
   sealed abstract class FragmentEvent extends Product with Serializable {
-    val initiator: ActorRef
+    val originalRequester: ActorRef
     val id: Option[UUID]
   }
 
   final case class FragmentsRequest(fragmentIds: List[FragmentId],
                                     replyTo: ActorRef,
-                                    initiator: ActorRef,
+                                    originalRequester: ActorRef,
                                     id: Option[UUID])
       extends FragmentEvent
 
   final case class FragmentsResponse(fragments: Map[FragmentId, FinalizedFragment],
-                                     initiator: ActorRef,
+                                     originalRequester: ActorRef,
                                      id: Option[UUID])
       extends FragmentEvent
 
@@ -83,11 +83,12 @@ private[inspection] object ActorInspection {
     def apply(initiator: ActorRef, id: Option[UUID]): FragmentsResponse = FragmentsResponse(Map.empty, initiator, id)
   }
 
-  final case class FragmentIdsRequest(replyTo: ActorRef, initiator: ActorRef, id: Option[UUID]) extends FragmentEvent
+  final case class FragmentIdsRequest(replyTo: ActorRef, originalRequester: ActorRef, id: Option[UUID])
+      extends FragmentEvent
 
   final case class FragmentIdsResponse(state: String,
                                        fragmentIds: Set[FragmentId],
-                                       initiator: ActorRef,
+                                       originalRequester: ActorRef,
                                        id: Option[UUID])
       extends FragmentEvent
 

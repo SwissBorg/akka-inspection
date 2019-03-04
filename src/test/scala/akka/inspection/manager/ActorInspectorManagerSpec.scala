@@ -6,6 +6,7 @@ import akka.inspection.manager.ActorInspectorManager._
 import akka.inspection.manager.state.Group
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+
 import scala.concurrent.duration._
 
 class ActorInspectorManagerSpec
@@ -60,7 +61,7 @@ class ActorInspectorManagerSpec
       within(10.seconds)(expectMsg(GroupsResponse(Left(ActorNotInspectable(dummyRef.toId)))))
     }
 
-    "fail when requesting the keys of an undeclared actor" in {
+    "fail when requesting the fragment-ids of an undeclared actor" in {
       val inspectorRef = system.actorOf(Props[ActorInspectorManager])
       val dummyRef = InspectableActorRef(system.actorOf(Props[NopActor]))
 

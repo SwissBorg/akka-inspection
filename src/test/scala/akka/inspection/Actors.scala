@@ -2,6 +2,7 @@ package akka.inspection
 
 import akka.actor.Actor
 import akka.inspection.ActorInspection.FragmentId
+import akka.inspection.main.Main.StatelessActor
 import akka.inspection.manager.state.Group
 
 object Actors {
@@ -20,19 +21,20 @@ object Actors {
     override val groups: Set[Group] = Set(Group("hello"), Group("world"))
   }
 
-  class StatelessActor extends Actor with ActorInspection[StatelessActor.State] {
+  class StatelessActor extends Actor with ActorInspection {
     override def receive: Receive = mainReceive(StatelessActor.State(0))
 
-    def mainReceive(s: StatelessActor.State): Receive = withInspection(s) {
+    def mainReceive(s: StatelessActor.State): Receive = withInspectionS("main")(s) {
       case _ => context.become(mainReceive(s.copy(i = s.i + 1)))
     }
 
-    override val fragments: Map[FragmentId, Fragment] = Map(
-      FragmentId("yes") -> Fragment.state(_.i),
-      FragmentId("no") -> Fragment.state(_.i + 1)
-    )
-
     override val groups: Set[Group] = Set(Group("goodbye"), Group("universe"))
+
+    implicit val stateInspectable: Inspectable[StatelessActor.State] = (s: StatelessActor.State) =>
+      Map(
+        FragmentId("yes") -> Fragment.state(_.i),
+        FragmentId("no") -> Fragment.state(_.i + 1)
+    )
   }
 
   object StatelessActor {

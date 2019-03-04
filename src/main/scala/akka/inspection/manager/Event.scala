@@ -154,7 +154,7 @@ object GroupResponse {
     )
 }
 
-final case class FragmentIdsResponse(keys: Either[ActorNotInspectable, List[FragmentId]]) extends ResponseEvent {
+final case class FragmentIdsResponse(keys: Either[Error, List[FragmentId]]) extends ResponseEvent {
   val toGRPC: grpc.FragmentIdsResponse = FragmentIdsResponse.grpcPrism(this)
 }
 

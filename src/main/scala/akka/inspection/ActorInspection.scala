@@ -4,16 +4,15 @@ import java.util.UUID
 
 import akka.actor.{Actor, ActorRef}
 
+// TODO DOC
 /**
  * Adds the ability to inspect the actor's state to an external service. This trait is useful for actor's using
- * `context.become(...)` with a stateful-receive taking a state of type [[S]].
+ * `context.become(...)` with a stateful-receive taking a state of type [[scalaz.Alpha.S]].
  *
- * It uses the concept of a [[Fragment]] and it's related [[FragmentId]]. These represent a subset of
+ * It uses the concept of a [[Fragment]] and it's related [[akka.inspection.ActorInspection.FragmentId]]. These represent a subset of
  * an actor's state. Note that multiple [[Fragment]]s can overlap.
- *
- * @tparam S the type of the stateful-receive's state.
  */
-trait ActorInspection[S] extends Actor {
+trait ActorInspection extends Actor {
   import ActorInspection._
 
   /**
@@ -22,55 +21,38 @@ trait ActorInspection[S] extends Actor {
   type Group = manager.state.Group
 
   /**
-   * @see [[ActorInspection.FragmentId]]
-   */
-  type FragmentId = ActorInspection.FragmentId
-
-  /**
-   * @see [[akka.inspection.Fragment]]
-   */
-  type Fragment = akka.inspection.Fragment[S]
-  val Fragment = new akka.inspection.Fragment.FragmentPartiallyApplied[S]()
-
-  /**
-   * [[Fragment]]s given their id.
-   */
-  val fragments: Map[FragmentId, Fragment]
-
-  /**
    * The groups in which the actor is a member.
    * This is used so that multiple actors can be inspected together.
    */
   val groups: Set[Group] = Set.empty
 
+  def inspectS[S: Inspectable](name: String)(s: S): Receive = {
+    val fragments0 = Inspectable[S].fragments(s)
+
+    {
+      case FragmentIdsRequest(replyTo, initiator, id) =>
+        replyTo ! FragmentIdsResponse(name, fragments0.keySet, initiator, id)
+
+      case FragmentsRequest(fragmentIds, replyTo, initiator, id) =>
+        val response = fragmentIds.foldLeft(FragmentsResponse(initiator, id)) {
+          case (response, id) =>
+            response.copy(fragments = response.fragments + (id -> fragments0.getOrElse(id, Fragment.undefined).run(s))) // TODO still need to run? Only in the "mutable" case?
+        }
+
+        replyTo ! response
+
+      case Init => sender() ! Ack
+    }
+  }
+
   /**
    * Adds the inspection events handling to `r`.
    */
-  final def withInspection(s: S)(r: Receive): Receive = inspectionReceive(s).orElse(r)
-
-  /**
-   * A receive that handles inspection events.
-   */
-  final def inspectionReceive(s: S): Receive = {
-    case r @ FragmentsRequest(_, replyTo, _, _) =>
-      handleQuery(s, r, replyTo)
-      sender() ! Ack
-
-    case Init => sender() ! Ack // for the backpressured events from the `ActorInspectorManager`
-
-  }
-
-  protected def handleQuery(s: S, req: FragmentsRequest, replyTo: ActorRef): Unit =
-    replyTo ! req.fragmentIds.foldLeft(FragmentsResponse(req.initiator, req.id)) {
-      case (response, id) =>
-        response.copy(
-          fragments = response.fragments + (id -> fragments.getOrElse(id, Fragment.undefined).run(s))
-        )
-    }
+  final def withInspectionS[S: Inspectable](name: String)(s: S)(r: Receive): Receive = inspectS(name)(s).orElse(r)
 
   override def aroundPreStart(): Unit = {
     super.aroundPreStart()
-    ActorInspector(context.system).put(self, fragments.keySet, groups)
+    ActorInspector(context.system).put(self, Set.empty, groups)
   }
 
   override def aroundPostStop(): Unit = {
@@ -83,6 +65,7 @@ private[inspection] object ActorInspection {
 
   sealed abstract class FragmentEvent extends Product with Serializable {
     val initiator: ActorRef
+    val id: Option[UUID]
   }
 
   final case class FragmentsRequest(fragmentIds: List[FragmentId],
@@ -99,6 +82,14 @@ private[inspection] object ActorInspection {
   object FragmentsResponse {
     def apply(initiator: ActorRef, id: Option[UUID]): FragmentsResponse = FragmentsResponse(Map.empty, initiator, id)
   }
+
+  final case class FragmentIdsRequest(replyTo: ActorRef, initiator: ActorRef, id: Option[UUID]) extends FragmentEvent
+
+  final case class FragmentIdsResponse(state: String,
+                                       fragmentIds: Set[FragmentId],
+                                       initiator: ActorRef,
+                                       id: Option[UUID])
+      extends FragmentEvent
 
   /**
    * Represents the identifier of a subset of an actor's state.

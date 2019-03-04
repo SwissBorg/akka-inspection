@@ -75,7 +75,7 @@ object arbitrary {
   implicit val cogenFragmentId: Cogen[FragmentId] = cogenString.contramap(_.id)
 
   implicit val cogenFragmentIdsReponse: Cogen[FragmentIdsResponse] =
-    cogenEither[ActorNotInspectable, List[FragmentId]].contramap(_.keys)
+    cogenEither[Error, List[FragmentId]].contramap(_.keys)
 
   implicit val cogenInspectableActorsRequest: Cogen[InspectableActorsRequest.type] =
     cogenUnit.contramap(_ => InspectableActorsRequest)

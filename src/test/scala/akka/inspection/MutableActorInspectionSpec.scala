@@ -1,7 +1,7 @@
 package akka.inspection
 
 import akka.actor.{ActorSystem, Props}
-import akka.inspection.ActorInspection.{FragmentsRequest => _, FragmentsResponse => _, _}
+import akka.inspection.ActorInspection.{FragmentIdsRequest => _, FragmentIdsResponse => _, FragmentsRequest => _, FragmentsResponse => _, _}
 import akka.inspection.Actors.MutableActor
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
@@ -11,7 +11,6 @@ import akka.testkit.{ImplicitSender, TestKit}
 import cats.data.OptionT
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.concurrent.Eventually
-import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.{AsyncWordSpecLike, BeforeAndAfterAll, Matchers}
 
 class MutableActorInspectionSpec
@@ -119,9 +118,6 @@ class MutableActorInspectionSpec
         .value
     }
   }
-
-  implicit override val patienceConfig =
-    PatienceConfig(timeout = scaled(Span(10, Seconds)), interval = scaled(Span(5, Millis)))
 
   override def afterAll: Unit = TestKit.shutdownActorSystem(system)
 }

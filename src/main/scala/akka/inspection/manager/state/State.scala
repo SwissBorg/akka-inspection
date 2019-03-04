@@ -11,15 +11,15 @@ import scala.concurrent.Future
 
 final private[manager] case class State(
   private val inspectableActors: InspectableActors,
-  private val stateFragments: Fragments,
+  private val fragments: Fragments,
   private val groups: Groups,
-  private val sourceQueues: SourceQueues[ActorInspection.FragmentsRequest],
+  private val sourceQueues: SourceQueues[ActorInspection.FragmentEvent],
   private val requestQueue: Queue[ResponseEvent]
 )(implicit materializer: Materializer) {
   def put(ref: InspectableActorRef, keys: Set[FragmentId], groups: Set[Group]): State =
     copy(
       inspectableActors = inspectableActors.add(ref),
-      stateFragments = this.stateFragments.addStateFragment(ref, keys),
+      fragments = this.fragments.addStateFragment(ref, keys),
       groups = this.groups.addGroups(ref, groups),
       sourceQueues = sourceQueues.add(ref)
     )
@@ -27,12 +27,12 @@ final private[manager] case class State(
   def release(ref: InspectableActorRef): State =
     copy(
       inspectableActors = inspectableActors.remove(ref),
-      stateFragments = stateFragments.remove(ref),
+      fragments = fragments.remove(ref),
       groups = groups.remove(ref),
       sourceQueues = sourceQueues.remove(ref)
     )
 
-  def offer(request: ActorInspection.FragmentsRequest,
+  def offer(request: ActorInspection.FragmentEvent,
             actor: String): Either[ActorNotInspectable, Future[QueueOfferResult]] =
     inspectableActors.fromId(actor).map(sourceQueues.offer(request, _))
 
@@ -43,8 +43,8 @@ final private[manager] case class State(
 
   def inGroup(g: Group): Set[InspectableActorRef] = groups.inGroup(g)
 
-  def stateFragmentIds(id: String): Either[ActorNotInspectable, Set[FragmentId]] =
-    inspectableActors.fromId(id).map(stateFragments.stateFragmentsIds)
+  def fragmentIds(actor: String): Either[ActorNotInspectable, Set[FragmentId]] =
+    inspectableActors.fromId(actor).map(fragments.stateFragmentsIds)
 
   def stash(r: ResponseEvent): State = copy(requestQueue = requestQueue.enqueue(r))
 
@@ -56,7 +56,7 @@ final private[manager] case class State(
 private[manager] object State {
   def empty(implicit materializer: Materializer): State =
     State(inspectableActors = InspectableActors.empty,
-          stateFragments = Fragments.empty,
+          fragments = Fragments.empty,
           groups = Groups.empty,
           sourceQueues = SourceQueues.empty,
           requestQueue = Queue.empty)

@@ -52,6 +52,11 @@ class ActorInspectorManager extends Actor {
    * Handles responses received from inspectable actors.
    */
   private def inspectableActorsResponses: Receive = {
+    case ActorInspection.FragmentIdsResponse(state, fragmentIds, initiator, id) =>
+      id.fold(initiator ! FragmentIdsResponse(Either.right(fragmentIds.toList))) { id =>
+        initiator ! BroadcastResponse(FragmentIdsResponse(Either.right(fragmentIds.toList)), initiator, id)
+      }
+
     case ActorInspection.FragmentsResponse(fragments, initiator, id) =>
       id.fold(initiator ! FragmentsResponse(Either.right(fragments))) { id =>
         initiator ! BroadcastResponse(FragmentsResponse(Either.right(fragments)), initiator, id)
@@ -124,7 +129,6 @@ class ActorInspectorManager extends Actor {
       case InspectableActorsRequest => OptionT.pure(InspectableActorsResponse(s.inspectableActorIds.toList.map(_.toId)))
       case GroupsRequest(id)        => OptionT.pure(GroupsResponse(s.groups(id).map(_.toList)))
       case GroupRequest(group)      => OptionT.pure(GroupResponse(s.inGroup(group).toList.map(_.toId)))
-      case FragmentIdsRequest(id)   => OptionT.pure(FragmentIdsResponse(s.stateFragmentIds(id).map(_.toList)))
 
       case FragmentsRequest(fragments, actor) =>
         s.offer(ActorInspection.FragmentsRequest(fragments, self, replyTo, id), actor) match {
@@ -142,6 +146,26 @@ class ActorInspectorManager extends Actor {
 
           case Left(err) => OptionT.pure(FragmentsResponse(Either.left(err)))
         }
+
+      // TODO duplication with above
+      // TODO not always go to actor?
+      case FragmentIdsRequest(actor) =>
+        s.offer(ActorInspection.FragmentIdsRequest(self, replyTo, id), actor) match {
+          case Right(m) =>
+            OptionT[Future, ResponseEvent](m.map {
+              case QueueOfferResult.Enqueued =>
+                None // the inspectable actor will receive the request and should respond back
+              case QueueOfferResult.Dropped =>
+                Some(FragmentIdsResponse(Either.left(UnreachableInspectableActor(actor))))
+              case _: QueueOfferResult.Failure =>
+                Some(FragmentIdsResponse(Either.left(UnreachableInspectableActor(actor))))
+              case QueueOfferResult.QueueClosed =>
+                Some(FragmentIdsResponse(Either.left(UnreachableInspectableActor(actor))))
+            })
+
+          case Left(err) => OptionT.pure(FragmentIdsResponse(Either.left(err)))
+        }
+
     }
 }
 

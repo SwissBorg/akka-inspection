@@ -9,7 +9,7 @@ import akka.inspection.manager._
 import akka.remote.testkit.MultiNodeSpec
 import akka.testkit.ImplicitSender
 import org.scalatest.Assertion
-import org.scalatest.concurrent.Eventually
+import org.scalatest.concurrent.{Eventually, IntegrationPatience}
 import org.scalatest.time.{Second, Seconds, Span}
 import test.helpers.{MultiNodeBasicConfig, STMultiNodeSpec}
 
@@ -27,7 +27,8 @@ class ActorInspectorSpec
     extends MultiNodeSpec(MultiNodeBasicConfig)
     with STMultiNodeSpec
     with ImplicitSender
-    with Eventually {
+    with Eventually
+    with IntegrationPatience {
   import MultiNodeBasicConfig._
 
   override def initialParticipants: Int = roles.size
@@ -221,8 +222,4 @@ class ActorInspectorSpec
     }
 
   }
-
-  implicit override val patienceConfig: PatienceConfig =
-    PatienceConfig(timeout = scaled(Span(30, Seconds)), interval = scaled(Span(1, Second)))
-
 }

@@ -3,6 +3,7 @@ package akka.inspection
 import java.util.UUID
 
 import akka.actor.{Actor, ActorRef}
+import akka.inspection.inspectable.Inspectable
 
 // TODO DOC
 /**
@@ -27,22 +28,15 @@ trait ActorInspection extends Actor {
   val groups: Set[Group] = Set.empty
 
   def inspectS[S: Inspectable](name: String)(s: S): Receive = {
-    val fragments0 = Inspectable[S].fragments
+    case request: FragmentIdsRequest =>
+      request.replyTo ! request.respondWith(name, Inspectable[S].fragments.keySet)
 
-    {
-      case FragmentIdsRequest(replyTo, originalRequester, id) =>
-        replyTo ! FragmentIdsResponse(name, fragments0.keySet, originalRequester, id)
+    case request: FragmentsRequest =>
+      request.replyTo ! request.respondWith(request.fragmentIds.foldLeft(Map.empty[FragmentId, FinalizedFragment]) {
+        case (fragments, id) => fragments + (id -> Inspectable[S].fragments.getOrElse(id, Fragment.undefined).run(s))
+      })
 
-      case FragmentsRequest(fragmentIds, replyTo, initiator, id) =>
-        val response = fragmentIds.foldLeft(FragmentsResponse(initiator, id)) {
-          case (response, id) =>
-            response.copy(fragments = response.fragments + (id -> fragments0.getOrElse(id, Fragment.undefined).run(s))) // TODO still need to run? Only in the "mutable" case?
-        }
-
-        replyTo ! response
-
-      case Init => sender() ! Ack
-    }
+    case Init => sender() ! Ack
   }
 
   /**
@@ -64,28 +58,57 @@ trait ActorInspection extends Actor {
 private[inspection] object ActorInspection {
 
   sealed abstract class FragmentEvent extends Product with Serializable {
-    val originalRequester: ActorRef
     val id: Option[UUID]
   }
 
+  /**
+   * A request of the current fragments.
+   *
+   * @param fragmentIds the fragments to inspect.
+   * @param replyTo the actor expecting the result.
+   * @param id
+   */
   final case class FragmentsRequest(fragmentIds: List[FragmentId],
                                     replyTo: ActorRef,
                                     originalRequester: ActorRef,
                                     id: Option[UUID])
-      extends FragmentEvent
+      extends FragmentEvent {
+    def respondWith(fragments: Map[FragmentId, FinalizedFragment]): FragmentsResponse =
+      FragmentsResponse(fragments, originalRequester, id)
+  }
 
+  /**
+   * Response to a [[FragmentsRequest]].
+   *
+   * @param fragments the fragments.
+   * @param originalRequester the actor expecting the result.
+   * @param id the unique-id of the request/response.
+   */
   final case class FragmentsResponse(fragments: Map[FragmentId, FinalizedFragment],
                                      originalRequester: ActorRef,
                                      id: Option[UUID])
       extends FragmentEvent
 
-  object FragmentsResponse {
-    def apply(initiator: ActorRef, id: Option[UUID]): FragmentsResponse = FragmentsResponse(Map.empty, initiator, id)
+  /**
+   *
+   * @param replyTo
+   * @param originalRequester
+   * @param id
+   */
+  final case class FragmentIdsRequest(replyTo: ActorRef, originalRequester: ActorRef, id: Option[UUID])
+      extends FragmentEvent {
+    def respondWith(state: String, fragmentIds: Set[FragmentId]): FragmentIdsResponse =
+      FragmentIdsResponse(state, fragmentIds, originalRequester, id)
   }
 
-  final case class FragmentIdsRequest(replyTo: ActorRef, originalRequester: ActorRef, id: Option[UUID])
-      extends FragmentEvent
-
+  /**
+   * Response to a [[FragmentIdsRequest]].
+   *
+   * @param state the name of the state in which the actor is.
+   * @param fragmentIds the fragment-ids inspectable in the current state.
+   * @param originalRequester the actor expecting the result.
+   * @param id the unique-id of the request/response.
+   */
   final case class FragmentIdsResponse(state: String,
                                        fragmentIds: Set[FragmentId],
                                        originalRequester: ActorRef,

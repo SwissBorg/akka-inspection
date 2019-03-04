@@ -1,6 +1,7 @@
 package akka.inspection
 
 import akka.actor.{Actor, ActorLogging}
+import akka.inspection.inspectable.Inspectable
 
 /**
  * Mix-in to make the actor available for inspection.

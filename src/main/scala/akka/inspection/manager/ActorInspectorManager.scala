@@ -40,10 +40,10 @@ class ActorInspectorManager extends Actor {
    */
   private def broadcastRequests(s: State): Receive = {
     case request: BroadcastRequest =>
-      val originalRequester = sender()
+      val replyTo = sender()
 
-      responseToBroadcast(request, s, originalRequester).value.onComplete {
-        case Success(Some(response)) => originalRequester ! request.respondWith(response)
+      responseToBroadcast(request, s, replyTo).value.onComplete {
+        case Success(Some(response)) => replyTo ! request.respondWith(response)
         case Success(None)           => () // no need to respond
         case Failure(t)              => throw new IllegalStateException(t)
       }
@@ -56,19 +56,21 @@ class ActorInspectorManager extends Actor {
     def convertFragmentIdsResponse(state: String, fragmentIds: Set[FragmentId]): FragmentIdsResponse =
       FragmentIdsResponse(Either.right((state, fragmentIds.toList)))
 
-    // TODO prism?
+    // TODO some lense?
     def convertFragmentsResponse(fragments: Map[FragmentId, FinalizedFragment]): FragmentsResponse =
       FragmentsResponse(Either.right(fragments))
 
     {
       case ActorInspection.FragmentIdsResponse(state, fragmentIds, originalRequester, id) =>
-        id.fold(originalRequester ! convertFragmentIdsResponse(state, fragmentIds)) { id =>
-          originalRequester ! BroadcastResponse(convertFragmentIdsResponse(state, fragmentIds), originalRequester, id)
+        id match {
+          case Some(id) => originalRequester ! BroadcastResponse(convertFragmentIdsResponse(state, fragmentIds), id)
+          case None     => originalRequester ! convertFragmentIdsResponse(state, fragmentIds)
         }
 
       case ActorInspection.FragmentsResponse(fragments, initiator, id) =>
-        id.fold(initiator ! convertFragmentsResponse(fragments)) { id =>
-          initiator ! BroadcastResponse(convertFragmentsResponse(fragments), initiator, id)
+        id match {
+          case Some(id) => initiator ! BroadcastResponse(convertFragmentsResponse(fragments), id)
+          case None     => initiator ! convertFragmentsResponse(fragments)
         }
     }
   }

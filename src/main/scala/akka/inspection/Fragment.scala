@@ -2,6 +2,7 @@ package akka.inspection
 
 import akka.inspection.ActorInspection.{FinalizedFragment, RenderedFragment, UndefinedFragment}
 import akka.inspection.util.Render
+import cats.ContravariantMonoidal
 
 /**
  * Describes how to extract a fragment from the state [[S]].
@@ -21,28 +22,28 @@ private[inspection] object Fragment {
   /**
    * Describes a fragment whose value doesn't change.
    */
-  final private case class Fix[S](fragment: String) extends Fragment[S] {
+  final case class Fix[S](fragment: String) extends Fragment[S] {
     override def run(s: S): FinalizedFragment = RenderedFragment(fragment)
   }
 
   /**
    * Describes a fragment whose value is evaluated at each access.
    */
-  final private case class Always[S](fragment: () => String) extends Fragment[S] {
+  final case class Always[S](fragment: () => String) extends Fragment[S] {
     override def run(s: S): FinalizedFragment = RenderedFragment(fragment())
   }
 
   /**
    * Describes a fragment dependent on [[S]].
    */
-  final private case class Given[S](fragment: S => String) extends Fragment[S] {
+  final case class Given[S](fragment: S => String) extends Fragment[S] {
     def run(s: S): FinalizedFragment = RenderedFragment(fragment(s))
   }
 
   /**
    * Describes an undefined fragment.
    */
-  final private case class Undefined[S]() extends Fragment[S] {
+  final case class Undefined[S]() extends Fragment[S] {
     override def run(s: S): FinalizedFragment = UndefinedFragment
   }
 
@@ -88,5 +89,38 @@ private[inspection] object Fragment {
     def fix(s: String): Fragment[S] = Fragment.fix(s)
     def sensitive: Fragment[S] = Fragment.sensitive
     def undefined: Fragment[S] = Fragment.undefined
+  }
+
+  implicit val fragmentContravariantMonoidal: ContravariantMonoidal[Fragment] = new ContravariantMonoidal[Fragment] {
+    override def contramap[A, B](fa: Fragment[A])(f: B => A): Fragment[B] = fa match {
+      case Fix(fragment)    => Fix(fragment)
+      case Always(fragment) => Always(fragment)
+      case Given(fragment)  => Given(fragment.compose(f))
+      case Undefined()      => Undefined()
+    }
+
+    override def unit: Fragment[Unit] = Undefined()
+
+    override def product[A, B](fa: Fragment[A], fb: Fragment[B]): Fragment[(A, B)] = (fa, fb) match {
+      case (Fix(fragment1), Fix(fragment2))    => Fix(s"($fragment1, $fragment2)")
+      case (Fix(fragment1), Always(fragment2)) => Always(() => s"($fragment1, $fragment2)")
+      case (Fix(fragment), Given(fragmentB))   => Given { case (_, b) => s"($fragment, ${fragmentB(b)})" }
+      case (Fix(fragment), Undefined())        => Fix(s"($fragment, )")
+
+      case (Always(fragment1), Always(fragment2)) => Always(() => s"($fragment1, $fragment2)")
+      case (Always(fragment1), Fix(fragment2))    => Always(() => s"($fragment1, $fragment2)")
+      case (Always(fragment1), Given(fragmentB))  => Given { case (_, b) => s"($fragment1, ${fragmentB(b)})" }
+      case (Always(fragment1), Undefined())       => Always(() => s"($fragment1, )")
+
+      case (Given(fragmentA), Given(fragmentB)) => Given { case (a, b) => s"(${fragmentA(a)}, ${fragmentB(b)})" }
+      case (Given(fragmentA), Fix(fragment))    => Given { case (a, _) => s"(${fragmentA(a)}, $fragment)" }
+      case (Given(fragmentA), Always(fragment)) => Given { case (a, _) => s"(${fragmentA(a)}, $fragment)" }
+      case (Given(fragmentA), Undefined())      => Given { case (a, _) => s"(${fragmentA(a)}, )" }
+
+      case (Undefined(), Fix(fragment))    => Fix(s"(, $fragment)")
+      case (Undefined(), Always(fragment)) => Always(() => s"(, $fragment)")
+      case (Undefined(), Given(fragmentB)) => Given { case (_, b) => s"(, ${fragmentB(b)})" }
+      case (Undefined(), Undefined())      => Undefined()
+    }
   }
 }

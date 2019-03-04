@@ -108,6 +108,7 @@ class MutableActorInspectionSpec
 
       val inspectableRef = InspectableActorRef(system.actorOf(Props[MutableActor]))
       val expectedFragmentIds = List(FragmentId("yes"), FragmentId("no"))
+      val expectedState = "receive"
 
       eventually(
         Await.result(
@@ -115,8 +116,9 @@ class MutableActorInspectionSpec
             grpcResponse <- OptionT.liftF(inspector.requestFragmentIds(FragmentIdsRequest(inspectableRef.toId).toGRPC))
             response <- OptionT.fromOption[Future](FragmentIdsResponse.fromGRPC(grpcResponse))
           } yield response).value.map {
-            case Some(FragmentIdsResponse(Right(groups))) => assert(groups == expectedFragmentIds)
-            case r                                        => assert(false, r)
+            case Some(FragmentIdsResponse(Right((state, ids)))) =>
+              assert(ids == expectedFragmentIds && state == expectedState)
+            case r => assert(false, r)
           },
           Duration.Inf
         )

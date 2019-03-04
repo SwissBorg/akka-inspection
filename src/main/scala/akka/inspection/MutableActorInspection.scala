@@ -23,11 +23,10 @@ trait MutableActorInspection extends ActorInspection with ActorLogging { this: A
    */
   val fragments: Map[FragmentId, Fragment]
 
-  final def inspect(name: String): Receive = inspectS(name)(())(Inspectable.unit(fragments))
+  final def inspect(name: String): Receive = inspectS(name)(())(Inspectable.from(fragments))
 
   final def withInspection(r: Receive): Receive = inspect("receive").orElse(r)
 
-  override def aroundPreStart(): Unit = {
+  override def aroundPreStart(): Unit =
     ActorInspector(context.system).put(self, fragments.keySet, groups)
-  }
 }

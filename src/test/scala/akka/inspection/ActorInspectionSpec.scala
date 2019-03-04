@@ -1,7 +1,13 @@
 package akka.inspection
 
 import akka.actor.{ActorSystem, Props}
-import akka.inspection.ActorInspection.{FragmentIdsRequest => _, FragmentIdsResponse => _, FragmentsRequest => _, FragmentsResponse => _, _}
+import akka.inspection.ActorInspection.{
+  FragmentIdsRequest => _,
+  FragmentIdsResponse => _,
+  FragmentsRequest => _,
+  FragmentsResponse => _,
+  _
+}
 import akka.inspection.Actors.StatelessActor
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
@@ -77,31 +83,12 @@ class ActorInspectionSpec
       )
     }
 
-    "correctly get the groups" in {
-      val inspector = ActorInspector(system)
-
-      val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
-      val expectedGroups = List(Group("goodbye"), Group("universe"))
-
-      eventually(
-        Await.result(
-          (for {
-            grpcResponse <- OptionT.liftF(inspector.requestGroups(GroupsRequest(inspectableRef.toId).toGRPC))
-            response <- OptionT.fromOption[Future](GroupsResponse.fromGRPC(grpcResponse))
-          } yield response).value.map {
-            case Some(GroupsResponse(Right(groups))) => assert(groups == expectedGroups)
-            case r                                   => assert(false, r)
-          },
-          Duration.Inf
-        )
-      )
-    }
-
     "correctly get the fragment ids" in {
       val inspector = ActorInspector(system)
 
       val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
       val expectedFragmentIds = List(FragmentId("yes"), FragmentId("no"))
+      val expectedState = "main"
 
       eventually(
         Await.result(
@@ -109,8 +96,9 @@ class ActorInspectionSpec
             grpcResponse <- OptionT.liftF(inspector.requestFragmentIds(FragmentIdsRequest(inspectableRef.toId).toGRPC))
             response <- OptionT.fromOption[Future](FragmentIdsResponse.fromGRPC(grpcResponse))
           } yield response).value.map {
-            case Some(FragmentIdsResponse(Right(groups))) => assert(groups == expectedFragmentIds)
-            case r                                        => assert(false, r)
+            case Some(FragmentIdsResponse(Right((state, ids)))) =>
+              assert(ids == expectedFragmentIds && state == expectedState)
+            case r => assert(false, r)
           },
           Duration.Inf
         )

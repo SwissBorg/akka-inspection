@@ -154,7 +154,7 @@ object GroupResponse {
     )
 }
 
-final case class FragmentIdsResponse(keys: Either[Error, List[FragmentId]]) extends ResponseEvent {
+final case class FragmentIdsResponse(ids: Either[Error, (String, List[FragmentId])]) extends ResponseEvent {
   val toGRPC: grpc.FragmentIdsResponse = FragmentIdsResponse.grpcPrism(this)
 }
 
@@ -164,23 +164,39 @@ object FragmentIdsResponse {
   def grpcPrism: Prism[grpc.FragmentIdsResponse, FragmentIdsResponse] =
     Prism.partial[grpc.FragmentIdsResponse, FragmentIdsResponse] {
       case grpc.FragmentIdsResponse(
-          grpc.FragmentIdsResponse.Res.FragmentIds(grpc.FragmentIdsResponse.FragmentIds(ids))
+          grpc.FragmentIdsResponse.Res.FragmentIds(grpc.FragmentIdsResponse.FragmentIds(state, ids))
           ) =>
-        FragmentIdsResponse(Either.right(ids.map(FragmentId).toList))
+        FragmentIdsResponse(Either.right((state, ids.map(FragmentId).toList)))
 
       case grpc.FragmentIdsResponse(
-          grpc.FragmentIdsResponse.Res.Error(grpc.Error.ActorNotInspectable(id))
+          grpc.FragmentIdsResponse.Res
+            .Error(grpc.Error(grpc.Error.Error.ActorNotInspectable(grpc.Error.ActorNotInspectable(id))))
           ) =>
         FragmentIdsResponse(Either.left(ActorNotInspectable(id)))
+
+      case grpc.FragmentIdsResponse(
+          grpc.FragmentIdsResponse.Res
+            .Error(grpc.Error(grpc.Error.Error.UnreachableInspectableActor(grpc.Error.UnreachableInspectableActor(id))))
+          ) =>
+        FragmentIdsResponse(Either.left(UnreachableInspectableActor(id)))
     } {
-      case FragmentIdsResponse(Right(fragmentIds)) =>
+      case FragmentIdsResponse(Right((state, fragmentIds))) =>
         grpc.FragmentIdsResponse(
-          grpc.FragmentIdsResponse.Res.FragmentIds(grpc.FragmentIdsResponse.FragmentIds(fragmentIds.map(_.id)))
+          grpc.FragmentIdsResponse.Res.FragmentIds(grpc.FragmentIdsResponse.FragmentIds(state, fragmentIds.map(_.id)))
         )
 
       // TODO add case!
       case FragmentIdsResponse(Left(ActorNotInspectable(id))) =>
-        grpc.FragmentIdsResponse(grpc.FragmentIdsResponse.Res.Error(grpc.Error.ActorNotInspectable(id)))
+        grpc.FragmentIdsResponse(
+          grpc.FragmentIdsResponse.Res
+            .Error(grpc.Error(grpc.Error.Error.ActorNotInspectable(grpc.Error.ActorNotInspectable(id))))
+        )
+
+      case FragmentIdsResponse(Left(UnreachableInspectableActor(id))) =>
+        grpc.FragmentIdsResponse(
+          grpc.FragmentIdsResponse.Res
+            .Error(grpc.Error(grpc.Error.Error.UnreachableInspectableActor(grpc.Error.UnreachableInspectableActor(id))))
+        )
     }
 }
 

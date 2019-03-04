@@ -4,6 +4,7 @@ import java.util.UUID
 
 import akka.actor.{Actor, ActorRef, Props}
 import akka.inspection.ActorInspection
+import akka.inspection.ActorInspection.{FinalizedFragment, FragmentId}
 import akka.inspection.manager.BroadcastActor._
 import akka.inspection.manager.state._
 import akka.stream.{ActorMaterializer, Materializer, QueueOfferResult}
@@ -52,17 +53,24 @@ class ActorInspectorManager extends Actor {
    * Handles responses received from inspectable actors.
    */
   private def inspectableActorsResponses: Receive = {
-    case ActorInspection.FragmentIdsResponse(state, fragmentIds, originalRequester, id) =>
-      id.fold(originalRequester ! FragmentIdsResponse(Either.right(fragmentIds.toList))) { id =>
-        originalRequester ! BroadcastResponse(FragmentIdsResponse(Either.right(fragmentIds.toList)),
-                                              originalRequester,
-                                              id)
-      }
+    def convertFragmentIdsResponse(state: String, fragmentIds: Set[FragmentId]): FragmentIdsResponse =
+      FragmentIdsResponse(Either.right((state, fragmentIds.toList)))
 
-    case ActorInspection.FragmentsResponse(fragments, initiator, id) =>
-      id.fold(initiator ! FragmentsResponse(Either.right(fragments))) { id =>
-        initiator ! BroadcastResponse(FragmentsResponse(Either.right(fragments)), initiator, id)
-      }
+    // TODO prism?
+    def convertFragmentsResponse(fragments: Map[FragmentId, FinalizedFragment]): FragmentsResponse =
+      FragmentsResponse(Either.right(fragments))
+
+    {
+      case ActorInspection.FragmentIdsResponse(state, fragmentIds, originalRequester, id) =>
+        id.fold(originalRequester ! convertFragmentIdsResponse(state, fragmentIds)) { id =>
+          originalRequester ! BroadcastResponse(convertFragmentIdsResponse(state, fragmentIds), originalRequester, id)
+        }
+
+      case ActorInspection.FragmentsResponse(fragments, initiator, id) =>
+        id.fold(initiator ! convertFragmentsResponse(fragments)) { id =>
+          initiator ! BroadcastResponse(convertFragmentsResponse(fragments), initiator, id)
+        }
+    }
   }
 
   /**

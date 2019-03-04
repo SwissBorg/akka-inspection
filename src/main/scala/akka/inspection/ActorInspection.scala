@@ -27,10 +27,10 @@ trait ActorInspection extends Actor {
   val groups: Set[Group] = Set.empty
 
   def inspectS[S: Inspectable](name: String)(s: S): Receive = {
-    val fragments0 = Inspectable[S].fragments(s)
+    val fragments0 = Inspectable[S].fragments
 
     {
-      case f @ FragmentIdsRequest(replyTo, originalRequester, id) =>
+      case FragmentIdsRequest(replyTo, originalRequester, id) =>
         replyTo ! FragmentIdsResponse(name, fragments0.keySet, originalRequester, id)
 
       case FragmentsRequest(fragmentIds, replyTo, initiator, id) =>

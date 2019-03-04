@@ -1,5 +1,6 @@
 package akka.inspection
 
+import akka.inspection
 import akka.inspection.ActorInspection.FragmentId
 
 trait Inspectable[A] {
@@ -10,7 +11,7 @@ trait Inspectable[A] {
   type Fragment = akka.inspection.Fragment[A]
   val Fragment = new akka.inspection.Fragment.FragmentPartiallyApplied[A]()
 
-  def fragments(a: A): Map[FragmentId, akka.inspection.Fragment[A]]
+  def fragments: Map[FragmentId, akka.inspection.Fragment[A]]
 }
 
 object Inspectable {
@@ -18,5 +19,7 @@ object Inspectable {
 
   def apply[A](implicit ev: Inspectable[A]): Inspectable[A] = ev
 
-  def unit(fragments: Map[FragmentId, Fragment[Unit]]): Inspectable[Unit] = (_: Unit) => fragments
+  def from[A](fragments0: Map[FragmentId, Fragment[A]]): Inspectable[A] = new Inspectable[A] {
+    override def fragments: Map[FragmentId, inspection.Fragment[A]] = fragments0
+  }
 }

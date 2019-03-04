@@ -25,21 +25,31 @@ object arbitrary {
     Gen.alphaNumStr.map(FragmentIdsRequest(_))
   )
 
-  implicit val arbGRPCActorNotInspectable: Arbitrary[grpc.Error.ActorNotInspectable] = Arbitrary(
-    getArbitrary[String].map(a => grpc.Error.ActorNotInspectable(a))
+  implicit val arbGRPCActorNotInspectable: Arbitrary[grpc.Error.Error.ActorNotInspectable] = Arbitrary(
+    getArbitrary[String].map(a => grpc.Error.Error.ActorNotInspectable(grpc.Error.ActorNotInspectable(a)))
   )
 
   implicit val arbGRPCFragmentIds: Arbitrary[grpc.FragmentIdsResponse.FragmentIds] = Arbitrary {
-    getArbitrary[Seq[String]].map(grpc.FragmentIdsResponse.FragmentIds(_))
+    for {
+      state <- getArbitrary[String]
+      fragmentIds <- getArbitrary[Seq[String]]
+    } yield grpc.FragmentIdsResponse.FragmentIds(state, fragmentIds)
   }
 
   implicit val arbGRPCFragmentIdsResponseFragmentIds: Arbitrary[grpc.FragmentIdsResponse.Res.FragmentIds] = Arbitrary {
     arbGRPCFragmentIds.arbitrary.map(grpc.FragmentIdsResponse.Res.FragmentIds)
   }
 
-  implicit val arbFragmentIdsResponseError: Arbitrary[grpc.FragmentIdsResponse.Res.Error] = Arbitrary {
-    arbGRPCActorNotInspectable.arbitrary.map(grpc.FragmentIdsResponse.Res.Error)
-  }
+  implicit val arbGRPCUnreachableActor: Arbitrary[grpc.Error.Error.UnreachableInspectableActor] = Arbitrary(
+    getArbitrary[String].map(
+      a => grpc.Error.Error.UnreachableInspectableActor(grpc.Error.UnreachableInspectableActor(a))
+    )
+  )
+
+  implicit val arbFragmentIdsResponseError: Arbitrary[grpc.FragmentIdsResponse.Res.Error] = Arbitrary(
+    oneOf(arbGRPCActorNotInspectable.arbitrary, arbGRPCUnreachableActor.arbitrary)
+      .map(a => grpc.FragmentIdsResponse.Res.Error(grpc.Error.of(a)))
+  )
 
   implicit val arbGRPCFragmentIdsReponseEmpty: Arbitrary[grpc.FragmentIdsResponse.Res.Empty.type] = Arbitrary {
     const(grpc.FragmentIdsResponse.Res.Empty)
@@ -58,7 +68,7 @@ object arbitrary {
   implicit val arbFragmentId: Arbitrary[FragmentId] = Arbitrary(arbString.arbitrary.map(FragmentId))
 
   implicit val arbFragmentIdsReponse: Arbitrary[FragmentIdsResponse] =
-    Arbitrary(arbEither[ActorNotInspectable, List[FragmentId]].arbitrary.map(a => FragmentIdsResponse(a)))
+    Arbitrary(arbEither[ActorNotInspectable, (String, List[FragmentId])].arbitrary.map(a => FragmentIdsResponse(a)))
 
   implicit val arbGRPCInspectableActorsRequest: Arbitrary[grpc.InspectableActorsRequest] = Arbitrary(
     Gen.const(grpc.InspectableActorsRequest())
@@ -75,7 +85,7 @@ object arbitrary {
   implicit val cogenFragmentId: Cogen[FragmentId] = cogenString.contramap(_.id)
 
   implicit val cogenFragmentIdsReponse: Cogen[FragmentIdsResponse] =
-    cogenEither[Error, List[FragmentId]].contramap(_.keys)
+    cogenEither[Error, (String, List[FragmentId])].contramap(_.ids)
 
   implicit val cogenInspectableActorsRequest: Cogen[InspectableActorsRequest.type] =
     cogenUnit.contramap(_ => InspectableActorsRequest)

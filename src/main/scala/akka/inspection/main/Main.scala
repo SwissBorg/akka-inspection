@@ -37,10 +37,11 @@ object Main {
 
     override val groups: Set[Group] = Set(Group("hello"), Group("world"))
 
-    implicit val stateInspectable: Inspectable[StatelessActor.State] = (s: StatelessActor.State) =>
+    implicit val stateInspectable: Inspectable[StatelessActor.State] = Inspectable.from(
       Map(
         FragmentId("yes") -> Fragment.state(_.i),
         FragmentId("no") -> Fragment.state(_.i + 1)
+      )
     )
   }
 

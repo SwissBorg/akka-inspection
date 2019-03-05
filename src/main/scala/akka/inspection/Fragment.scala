@@ -47,6 +47,13 @@ private[inspection] object Fragment {
     override def run(s: S): FinalizedFragment = UndefinedFragment
   }
 
+  final case class Named[S](name: String, fragment: Fragment[S]) extends Fragment[S] {
+    override def run(s: S): FinalizedFragment = fragment.run(s) match {
+      case RenderedFragment(fragment) => RenderedFragment(s"$name = $fragment")
+      case UndefinedFragment          => UndefinedFragment
+    }
+  }
+
   /**
    * Build a [[Fragment]] independent of the state [[S]].
    */
@@ -89,6 +96,10 @@ private[inspection] object Fragment {
     def fix(s: String): Fragment[S] = Fragment.fix(s)
     def sensitive: Fragment[S] = Fragment.sensitive
     def undefined: Fragment[S] = Fragment.undefined
+  }
+
+  implicit class NamedOps[S](private val fragment: Fragment[S]) extends AnyVal {
+    def name(n: String): Fragment[S] = Named(n, fragment)
   }
 
   implicit val fragmentContravariantMonoidal: ContravariantMonoidal[Fragment] = new ContravariantMonoidal[Fragment] {

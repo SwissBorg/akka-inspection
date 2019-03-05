@@ -64,6 +64,6 @@ trait LowPriorityDerivedInspectable {
             (id, fragment.contramap[FieldType[K, H] :: T](_.tail))
         } + (FragmentId(
           witness.value.name
-        ) -> Fragment.state(_.head)(renderH.value))
+        ) -> Fragment.state(_.head)(renderH.value).name(witness.value.name))
     }
 }

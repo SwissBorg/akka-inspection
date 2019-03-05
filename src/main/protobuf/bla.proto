@@ -12,6 +12,7 @@ service ActorInspectionService {
     rpc RequestGroup (GroupRequest) returns (GroupResponse) {}
     rpc RequestFragmentIds (FragmentIdsRequest) returns (FragmentIdsResponse) {}
     rpc RequestFragments (FragmentsRequest) returns (FragmentsResponse) {}
+    rpc RequestAllFragments (AllFragmentsRequest) returns (FragmentsResponse) {}
 }
 
 message InspectableActorsRequest {}
@@ -76,6 +77,11 @@ message FragmentsResponse {
         Error error = 2;
     }
 }
+
+message AllFragmentsRequest {
+    string actor = 1;
+}
+// response using FragmentsResponse
 
 message Error {
     message ActorNotInspectable {

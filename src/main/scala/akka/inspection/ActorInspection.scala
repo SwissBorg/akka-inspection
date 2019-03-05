@@ -30,12 +30,30 @@ trait ActorInspection extends Actor {
   def inspectS[S: Inspectable](name: String)(s: S): Receive = {
     case request: FragmentIdsRequest =>
       request.replyTo ! request.respondWith(name, Inspectable[S].fragments.keySet)
+      sender() ! Ack
 
     case request: FragmentsRequest =>
-      val S = Inspectable[S]
-      request.replyTo ! request.respondWith(request.fragmentIds.foldLeft(Map.empty[FragmentId, FinalizedFragment]) {
-        case (fragments, id) => fragments + (id -> S.fragments.getOrElse(id, Fragment.undefined).run(s))
-      })
+      val inspectableS = Inspectable[S]
+
+      val response = request.respondWith(
+        name,
+        request.fragmentIds match {
+          // Inspect everything
+          case Nil =>
+            inspectableS.fragments.map {
+              case (id, fragment) => (id, fragment.run(s))
+            }
+          case ids =>
+            ids.foldLeft(Map.empty[FragmentId, FinalizedFragment]) {
+              case (fragments, id) =>
+                fragments + (id -> inspectableS.fragments.getOrElse(id, Fragment.undefined).run(s))
+            }
+        }
+      )
+
+      request.replyTo ! response
+
+      sender() ! Ack
 
     case Init => sender() ! Ack
   }
@@ -65,37 +83,33 @@ private[inspection] object ActorInspection {
   /**
    * A request of the current fragments.
    *
-   * @param fragmentIds the fragments to inspect.
+   * @param fragmentIds the fragments to inspect, if empty all fragments are inspected.
    * @param replyTo the actor expecting the result.
-   * @param id
+   * @param id the unique-id of the request/response
    */
   final case class FragmentsRequest(fragmentIds: List[FragmentId],
                                     replyTo: ActorRef,
                                     originalRequester: ActorRef,
                                     id: Option[UUID])
       extends FragmentEvent {
-    def respondWith(fragments: Map[FragmentId, FinalizedFragment]): FragmentsResponse =
-      FragmentsResponse(fragments, originalRequester, id)
+    def respondWith(state: String, fragments: Map[FragmentId, FinalizedFragment]): FragmentsResponse =
+      FragmentsResponse(state, fragments, originalRequester, id)
   }
 
   /**
    * Response to a [[FragmentsRequest]].
    *
+   * @param state the state the actor is in.
    * @param fragments the fragments.
    * @param originalRequester the actor expecting the result.
    * @param id the unique-id of the request/response.
    */
-  final case class FragmentsResponse(fragments: Map[FragmentId, FinalizedFragment],
+  final case class FragmentsResponse(state: String,
+                                     fragments: Map[FragmentId, FinalizedFragment],
                                      originalRequester: ActorRef,
                                      id: Option[UUID])
       extends FragmentEvent
 
-  /**
-   *
-   * @param replyTo
-   * @param originalRequester
-   * @param id
-   */
   final case class FragmentIdsRequest(replyTo: ActorRef, originalRequester: ActorRef, id: Option[UUID])
       extends FragmentEvent {
     def respondWith(state: String, fragmentIds: Set[FragmentId]): FragmentIdsResponse =

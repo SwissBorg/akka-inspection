@@ -78,6 +78,18 @@ object FragmentsRequest {
     )
 }
 
+final case class AllFragmentsRequest(actor: String) extends RequestEvent {
+  def toGRPC: grpc.AllFragmentsRequest = AllFragmentsRequest.grpcIso(this)
+}
+
+object AllFragmentsRequest {
+  def fromGRPC(r: grpc.AllFragmentsRequest): AllFragmentsRequest = grpcIso.get(r)
+
+  val grpcIso: Iso[grpc.AllFragmentsRequest, AllFragmentsRequest] = Iso[grpc.AllFragmentsRequest, AllFragmentsRequest](
+    r => AllFragmentsRequest(r.actor)
+  )(r => grpc.AllFragmentsRequest(r.actor))
+}
+
 /* --- Response events ---- */
 sealed trait ResponseEvent extends Product with Serializable
 
@@ -86,8 +98,8 @@ object ResponseEvent {
   /**
    * Merges the [[ResponseEvent]]s together if they match else picks the one on the right.
    */
-  implicit val responseEventSemigroup: Semigroup[ResponseEvent] = new Semigroup[ResponseEvent] {
-    override def combine(x: ResponseEvent, y: ResponseEvent): ResponseEvent = (x, y) match {
+  implicit val responseEventSemigroup: Semigroup[ResponseEvent] = (x: ResponseEvent, y: ResponseEvent) =>
+    (x, y) match {
       case (x: InspectableActorsResponse, y: InspectableActorsResponse) =>
         InspectableActorsResponse(x.inspectableActors ++ y.inspectableActors)
 
@@ -103,7 +115,6 @@ object ResponseEvent {
       case (_: FragmentIdsResponse, y: FragmentIdsResponse) => y
       case (_: FragmentsResponse, y: FragmentsResponse)     => y
       case _                                                => y
-    }
   }
 }
 

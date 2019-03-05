@@ -67,7 +67,7 @@ class ActorInspectorManager extends Actor {
           case None     => originalRequester ! convertFragmentIdsResponse(state, fragmentIds)
         }
 
-      case ActorInspection.FragmentsResponse(fragments, initiator, id) =>
+      case ActorInspection.FragmentsResponse(_, fragments, initiator, id) =>
         id match {
           case Some(id) => initiator ! BroadcastResponse(convertFragmentsResponse(fragments), id)
           case None     => initiator ! convertFragmentsResponse(fragments)
@@ -140,6 +140,8 @@ class ActorInspectorManager extends Actor {
       case InspectableActorsRequest => OptionT.pure(InspectableActorsResponse(s.inspectableActorIds.toList.map(_.toId)))
       case GroupsRequest(id)        => OptionT.pure(GroupsResponse(s.groups(id).map(_.toList)))
       case GroupRequest(group)      => OptionT.pure(GroupResponse(s.inGroup(group).toList.map(_.toId)))
+
+      case AllFragmentsRequest(actor) => _responseTo(FragmentsRequest(List.empty, actor), s, originalRequester, id)
 
       case FragmentsRequest(fragments, actor) =>
         s.offer(ActorInspection.FragmentsRequest(fragments, self, originalRequester, id), actor) match {

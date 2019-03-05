@@ -55,17 +55,14 @@ object Inspectable {
         }
     }
 
-//  implicit def inspectableAlternative: Alternative[Inspectable] = new Alternative[Inspectable] {
-//    override def empty[A]: Inspectable[A] = Inspectable.from(Map.empty)
+//  type Typeclass[T] = Inspectable[T]
+//  def combine[T](caseClass: CaseClass[Inspectable, T]): Inspectable[T] = new Inspectable[T] {
+//    override def fragments: Map[FragmentId, inspection.Fragment[T]] =
+//      caseClass.parameters.foldLeft(Map.empty[FragmentId, Fragment]) {
+//        case (fragments, param) => fragments + (FragmentId(param.label) -> Fragment.contramap(param.dereference).state(param.dereference).contramap(param.dereference))
 //
-//    override def combineK[A](x: Inspectable[A], y: Inspectable[A]): Inspectable[A] = new Inspectable[A] {
-//      override def fragments: Map[FragmentId, inspection.Fragment[A]] = x.fragments ++ y.fragments
-//    }
-//
-//    override def pure[A](x: A): Inspectable[A] = ???
-//
-//    override def ap[A, B](ff: Inspectable[A => B])(fa: Inspectable[A]): Inspectable[B] = new Inspectable[B] {
-//      override def fragments: Map[FragmentId, inspection.Fragment[B]] = ff.
-//    }
+////          param.typeclass.fragments.mapValues(_.contramap[T](param.dereference))
+//      }
 //  }
+//  implicit def gen[T]: Typeclass[T] = macro Magnolia.gen[T]
 }

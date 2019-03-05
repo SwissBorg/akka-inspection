@@ -90,7 +90,7 @@ class ActorInspectionSpec
             response <- OptionT.fromOption[Future](FragmentIdsResponse.fromGRPC(grpcResponse))
           } yield response).value.map {
             case Some(FragmentIdsResponse(Right((state, ids)))) =>
-              assert(ids == expectedFragmentIds && state == expectedState)
+              assert(ids.toSet == expectedFragmentIds.toSet && state == expectedState)
             case r => assert(false, r)
           },
           Duration.Inf

@@ -32,8 +32,9 @@ trait ActorInspection extends Actor {
       request.replyTo ! request.respondWith(name, Inspectable[S].fragments.keySet)
 
     case request: FragmentsRequest =>
+      val S = Inspectable[S]
       request.replyTo ! request.respondWith(request.fragmentIds.foldLeft(Map.empty[FragmentId, FinalizedFragment]) {
-        case (fragments, id) => fragments + (id -> Inspectable[S].fragments.getOrElse(id, Fragment.undefined).run(s))
+        case (fragments, id) => fragments + (id -> S.fragments.getOrElse(id, Fragment.undefined).run(s))
       })
 
     case Init => sender() ! Ack

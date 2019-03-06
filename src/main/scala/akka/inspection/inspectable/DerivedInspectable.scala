@@ -21,11 +21,12 @@ object DerivedInspectable extends LowPriorityDerivedInspectable {
                    inspectableRepr: Cached[Strict[DerivedInspectable[Repr]]]): DerivedInspectable[A] =
     new DerivedInspectable[A] {
       override def fragments: Map[ActorInspection.FragmentId, inspection.Fragment[A]] =
-        inspectableRepr.value.value.fragments.mapValues {
-          case Fix(fragment)    => Fix(fragment)
-          case Always(fragment) => Always(fragment)
-          case Given(fragment)  => Given(fragment.compose(gen.to))
-          case Undefined()      => Undefined()
+        inspectableRepr.value.value.fragments.map {
+          case (id, Fix(fragment))         => id -> Fix[A](fragment)
+          case (id, Always(fragment))      => id -> Always[A](fragment)
+          case (id, Given(fragment))       => id -> Given[A](fragment.compose(gen.to))
+          case (id, Named(name, fragment)) => id -> Named[A](name, fragment.contramap(gen.to))
+          case (id, Undefined())           => id -> Undefined[A]()
         }
     }
 

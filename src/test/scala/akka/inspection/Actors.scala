@@ -14,8 +14,8 @@ object Actors {
     }
 
     override val fragments: Map[FragmentId, Fragment] = Map(
-      FragmentId("yes") -> Fragment.always(i),
-      FragmentId("no") -> Fragment.always(i + 1)
+      FragmentId("yes") -> Fragment.always(i).name("yes"),
+      FragmentId("no") -> Fragment.always(i + 1).name("no")
     )
 
     override val groups: Set[Group] = Set(Group("hello"), Group("world"))

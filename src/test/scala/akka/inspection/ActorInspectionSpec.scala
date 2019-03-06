@@ -33,7 +33,7 @@ class ActorInspectionSpec
 
       val m = FragmentsRequest(List(FragmentId("yes")), inspectableRef.toId)
 
-      val expectedFragment = Map(FragmentId("yes") -> RenderedFragment("1"))
+      val expectedFragment = Map(FragmentId("yes") -> RenderedFragment("yes = 1"))
 
       inspectableRef.ref ! 42
 
@@ -58,7 +58,7 @@ class ActorInspectionSpec
 
       val m = FragmentsRequest(List(FragmentId("yes"), FragmentId("no")), inspectableRef.toId)
 
-      val expectedFragment = Map(FragmentId("yes") -> RenderedFragment("1"), FragmentId("no") -> RenderedFragment("2"))
+      val expectedFragment = Map(FragmentId("yes") -> RenderedFragment("yes = 1"), FragmentId("no") -> RenderedFragment("no = 2"))
 
       inspectableRef.ref ! 42
 

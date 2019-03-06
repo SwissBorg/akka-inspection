@@ -2,7 +2,8 @@ package akka.inspection
 
 import akka.inspection.ActorInspection.{FinalizedFragment, RenderedFragment, UndefinedFragment}
 import akka.inspection.util.Render
-import cats.ContravariantMonoidal
+import cats.{ContravariantMonoidal, ContravariantSemigroupal, Semigroupal}
+import cats.implicits._
 
 /**
  * Describes how to extract a fragment from the state [[S]].
@@ -102,36 +103,40 @@ private[inspection] object Fragment {
     def name(n: String): Fragment[S] = Named(n, fragment)
   }
 
-  implicit val fragmentContravariantMonoidal: ContravariantMonoidal[Fragment] = new ContravariantMonoidal[Fragment] {
-    override def contramap[A, B](fa: Fragment[A])(f: B => A): Fragment[B] = fa match {
-      case Fix(fragment)    => Fix(fragment)
-      case Always(fragment) => Always(fragment)
-      case Given(fragment)  => Given(fragment.compose(f))
-      case Undefined()      => Undefined()
+  implicit val fragmentContravariantSemigroupal: ContravariantSemigroupal[Fragment] =
+    new ContravariantSemigroupal[Fragment] {
+      override def contramap[A, B](fa: Fragment[A])(f: B => A): Fragment[B] = fa match {
+        case Fix(fragment)         => Fix(fragment)
+        case Always(fragment)      => Always(fragment)
+        case Given(fragment)       => Given(fragment.compose(f))
+        case Named(name, fragment) => Named(name, fragment.contramap(f))
+        case Undefined()           => Undefined()
+      }
+
+      override def product[A, B](fa: Fragment[A], fb: Fragment[B]): Fragment[(A, B)] = (fa, fb) match {
+        case (Fix(fragment1), Fix(fragment2))    => Fix(s"($fragment1, $fragment2)")
+        case (Fix(fragment1), Always(fragment2)) => Always(() => s"($fragment1, $fragment2)")
+        case (Fix(fragment), Given(fragmentB))   => Given { case (_, b) => s"($fragment, ${fragmentB(b)})" }
+        case (Fix(fragment), Undefined())        => Fix(s"($fragment, )")
+
+        case (Always(fragment1), Always(fragment2)) => Always(() => s"($fragment1, $fragment2)")
+        case (Always(fragment1), Fix(fragment2))    => Always(() => s"($fragment1, $fragment2)")
+        case (Always(fragment1), Given(fragmentB))  => Given { case (_, b) => s"($fragment1, ${fragmentB(b)})" }
+        case (Always(fragment1), Undefined())       => Always(() => s"($fragment1, )")
+
+        case (Given(fragmentA), Given(fragmentB)) => Given { case (a, b) => s"(${fragmentA(a)}, ${fragmentB(b)})" }
+        case (Given(fragmentA), Fix(fragment))    => Given { case (a, _) => s"(${fragmentA(a)}, $fragment)" }
+        case (Given(fragmentA), Always(fragment)) => Given { case (a, _) => s"(${fragmentA(a)}, $fragment)" }
+        case (Given(fragmentA), Undefined())      => Given { case (a, _) => s"(${fragmentA(a)}, )" }
+
+        case (Undefined(), Fix(fragment))    => Fix(s"(, $fragment)")
+        case (Undefined(), Always(fragment)) => Always(() => s"(, $fragment)")
+        case (Undefined(), Given(fragmentB)) => Given { case (_, b) => s"(, ${fragmentB(b)})" }
+        case (Undefined(), Undefined())      => Undefined()
+
+        case (fragment1, Named(name, fragment2)) => Named(name, product(fragment1, fragment2))
+        case (Named(name, fragment1), fragment2) => Named(name, product(fragment1, fragment2))
+
+      }
     }
-
-    override def unit: Fragment[Unit] = Undefined()
-
-    override def product[A, B](fa: Fragment[A], fb: Fragment[B]): Fragment[(A, B)] = (fa, fb) match {
-      case (Fix(fragment1), Fix(fragment2))    => Fix(s"($fragment1, $fragment2)")
-      case (Fix(fragment1), Always(fragment2)) => Always(() => s"($fragment1, $fragment2)")
-      case (Fix(fragment), Given(fragmentB))   => Given { case (_, b) => s"($fragment, ${fragmentB(b)})" }
-      case (Fix(fragment), Undefined())        => Fix(s"($fragment, )")
-
-      case (Always(fragment1), Always(fragment2)) => Always(() => s"($fragment1, $fragment2)")
-      case (Always(fragment1), Fix(fragment2))    => Always(() => s"($fragment1, $fragment2)")
-      case (Always(fragment1), Given(fragmentB))  => Given { case (_, b) => s"($fragment1, ${fragmentB(b)})" }
-      case (Always(fragment1), Undefined())       => Always(() => s"($fragment1, )")
-
-      case (Given(fragmentA), Given(fragmentB)) => Given { case (a, b) => s"(${fragmentA(a)}, ${fragmentB(b)})" }
-      case (Given(fragmentA), Fix(fragment))    => Given { case (a, _) => s"(${fragmentA(a)}, $fragment)" }
-      case (Given(fragmentA), Always(fragment)) => Given { case (a, _) => s"(${fragmentA(a)}, $fragment)" }
-      case (Given(fragmentA), Undefined())      => Given { case (a, _) => s"(${fragmentA(a)}, )" }
-
-      case (Undefined(), Fix(fragment))    => Fix(s"(, $fragment)")
-      case (Undefined(), Always(fragment)) => Always(() => s"(, $fragment)")
-      case (Undefined(), Given(fragmentB)) => Given { case (_, b) => s"(, ${fragmentB(b)})" }
-      case (Undefined(), Undefined())      => Undefined()
-    }
-  }
 }

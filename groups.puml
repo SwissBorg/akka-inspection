@@ -1,0 +1,20 @@
+@startuml
+actor Alice
+
+Alice -> "Node1\nInspectionManager\nFrontend": In what groups is Node2_Actor1?
+
+"Node1\nInspectionManager\nFrontend" -> "Node1\nInspectionManager": GroupsRequest(Node2_Actor1)
+
+alt manager knows the actor
+    "Node1\nInspectionManager" -> "Node1\nInspectionManager\nFrontend": GroupsResponse(a, b, c)
+else manager does not know the actor
+    "Node1\nInspectionManager" -> "Node1\nInspectionManager\nBroadcaster": BroadcastRequest(GroupsRequest(Node2_Actor1), GroupsResponse(non-inspectable actor))
+    "Node1\nInspectionManager\nBroadcaster"-> "Node2\nInspectionManager": BroadcastRequest(GroupsRequest(Node2_Actor1), GroupsResponse(non-inspectable actor))
+    "Node1\nInspectionManager\nBroadcaster" -> "Node3\nInspectionManager": BroadcastRequest(GroupsRequest(Node2_Actor1), GroupsResponse(non-inspectable actor))
+    "Node2\nInspectionManager" -> "Node1\nInspectionManager\nBroadcaster": BroadcastResponse(GroupsResponse(a, b, c))
+    "Node3\nInspectionManager" -> "Node1\nInspectionManager\nBroadcaster": BroadcastResponse(GroupsResponse(non-inspectable actor))
+    "Node1\nInspectionManager\nBroadcaster" -> "Node1\nInspectionManager\nFrontend": GroupsResponse(a, b, c)
+end
+
+"Node1\nInspectionManager\nFrontend" -> Alice: Groups a, b, and c.
+@enduml

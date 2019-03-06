@@ -1,0 +1,7 @@
+@startuml
+Node1_Actor1 -> Node1_InspectionManager: Put(ref, groups)
+Node1_Actor2 -> Node1_InspectionManager: Put(ref, groups)
+
+Node2_Actor1 -> Node2_InspectionManager: Put(ref, groups)
+Node2_Actor2 -> Node2_InspectionManager: Put(ref, groups)
+@enduml

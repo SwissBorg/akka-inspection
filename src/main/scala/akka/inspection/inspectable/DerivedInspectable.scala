@@ -51,7 +51,8 @@ object DerivedInspectable extends LowPriorityDerivedInspectable {
   }
 
   implicit val hnilDerivedInspectable: DerivedInspectable[HNil] = new DerivedInspectable[HNil] {
-    override def fragments: Map[FragmentId, inspection.Fragment[HNil]] = Map.empty[FragmentId, inspection.Fragment[HNil]]
+    override def fragments: Map[FragmentId, inspection.Fragment[HNil]] =
+      Map.empty[FragmentId, inspection.Fragment[HNil]]
   }
 }
 

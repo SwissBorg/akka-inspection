@@ -23,17 +23,17 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef)
   def release(ref: ActorRef): Unit = actorInspectorManager ! Release(InspectableActorRef(ref))
 
   override def requestInspectableActors(in: grpc.InspectableActorsRequest): Future[grpc.InspectableActorsResponse] =
-    (actorInspectorManager ? InspectableActorsRequest.fromGRPC(in)).mapTo[InspectableActorsResponse].map(_.toGRPC)
+    (actorInspectorManager ? InspectableActorsRequest.fromGRPC(in)).mapTo[InspectableActorsResponse].transform(_.map(_.toGRPC))
 
   override def requestGroups(in: grpc.GroupsRequest): Future[grpc.GroupsResponse] =
-    (actorInspectorManager ? GroupsRequest.fromGRPC(in)).mapTo[GroupsResponse].map(_.toGRPC)
+    (actorInspectorManager ? GroupsRequest.fromGRPC(in)).mapTo[GroupsResponse].transform(_.map(_.toGRPC))
 
   override def requestGroup(in: grpc.GroupRequest): Future[grpc.GroupResponse] =
-    (actorInspectorManager ? GroupRequest.fromGRPC(in)).mapTo[GroupResponse].map(_.toGRPC)
+    (actorInspectorManager ? GroupRequest.fromGRPC(in)).mapTo[GroupResponse].transform(_.map(_.toGRPC))
 
   override def requestFragmentIds(in: grpc.FragmentIdsRequest): Future[grpc.FragmentIdsResponse] =
-    (actorInspectorManager ? FragmentIdsRequest.fromGRPC(in)).mapTo[FragmentIdsResponse].map(_.toGRPC)
+    (actorInspectorManager ? FragmentIdsRequest.fromGRPC(in)).mapTo[FragmentIdsResponse].transform(_.map(_.toGRPC))
 
   override def requestFragments(in: grpc.FragmentsRequest): Future[grpc.FragmentsResponse] =
-    (actorInspectorManager ? FragmentsRequest.fromGRPC(in)).mapTo[FragmentsResponse].map(_.toGRPC)
+    (actorInspectorManager ? FragmentsRequest.fromGRPC(in)).mapTo[FragmentsResponse].transform(_.map(_.toGRPC))
 }

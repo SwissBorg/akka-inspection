@@ -2,6 +2,7 @@ package akka.inspection
 
 import akka.actor.Actor
 import akka.inspection.ActorInspection.FragmentId
+import akka.inspection.Actors.StatelessActor.InnerState
 import akka.inspection.inspectable.{DerivedInspectable, Inspectable}
 import akka.inspection.manager.state.Group
 
@@ -22,10 +23,17 @@ object Actors {
   }
 
   class StatelessActor extends Actor with ActorInspection {
-    override def receive: Receive = mainReceive(StatelessActor.State(0, 1))
+    override def receive: Receive = mainReceive(StatelessActor.State(0, 1, InnerState(2, 3)))
 
     def mainReceive(s: StatelessActor.State): Receive = withInspectionS("main")(s) {
-      case _ => context.become(mainReceive(s.copy(yes = s.yes + 1, no = s.no + 1)))
+      case _ =>
+        context.become(
+          mainReceive(
+            s.copy(yes = s.yes + 1,
+                   no = s.no + 1,
+                   maybe = s.maybe.copy(maybeYes = s.maybe.maybeYes + 1, maybeNo = s.maybe.maybeNo + 1))
+          )
+        )
     }
 
     override val groups: Set[Group] = Set(Group("goodbye"), Group("universe"))
@@ -33,6 +41,7 @@ object Actors {
   }
 
   object StatelessActor {
-    case class State(yes: Int, no: Int)
+    final case class State(yes: Int, no: Int, maybe: InnerState)
+    final case class InnerState(maybeYes: Int, maybeNo: Int)
   }
 }

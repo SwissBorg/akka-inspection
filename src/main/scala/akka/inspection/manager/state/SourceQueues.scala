@@ -17,7 +17,7 @@ final private[manager] case class SourceQueues[M](
     copy(
       sourceQueues = sourceQueues + (ref -> Source
         .queue[M](5, OverflowStrategy.backpressure)
-        .toMat(Sink.actorRefWithAck(ref.ref, Init, Ack, Complete))(Keep.left)
+        .toMat(Sink.actorRefWithAck[M](ref.ref, Init, Ack, Complete))(Keep.left)
         .run())
     )
 
@@ -27,5 +27,5 @@ final private[manager] case class SourceQueues[M](
 }
 
 private[manager] object SourceQueues {
-  def empty[M]: SourceQueues[M] = SourceQueues(Map.empty)
+  def empty[M]: SourceQueues[M] = SourceQueues(Map.empty[InspectableActorRef, SourceQueueWithComplete[M]])
 }

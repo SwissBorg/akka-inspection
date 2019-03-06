@@ -15,6 +15,7 @@ object Main {
   }
 
   class MutableActor extends Actor with MutableActorInspection {
+    @SuppressWarnings(Array("org.wartremover.warts.Var"))
     private var i: Int = 0
 
     override def receive: Receive = withInspection {
@@ -47,7 +48,7 @@ object Main {
   }
 
   object StatelessActor {
-    case class State(i: Int)
+    final case class State(i: Int)
   }
 
   val testConfig: Config = ConfigFactory

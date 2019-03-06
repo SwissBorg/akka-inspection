@@ -35,7 +35,7 @@ object Inspectable {
         }
       }
 
-      override def unit: Inspectable[Unit] = Inspectable.from(Map.empty)
+      override def unit: Inspectable[Unit] = Inspectable.from(Map.empty[FragmentId, Fragment[Unit]])
 
       override def product[A, B](fa: Inspectable[A], fb: Inspectable[B]): Inspectable[(A, B)] =
         new Inspectable[(A, B)] {

@@ -78,18 +78,6 @@ object FragmentsRequest {
     )
 }
 
-final case class AllFragmentsRequest(actor: String) extends RequestEvent {
-  def toGRPC: grpc.AllFragmentsRequest = AllFragmentsRequest.grpcIso(this)
-}
-
-object AllFragmentsRequest {
-  def fromGRPC(r: grpc.AllFragmentsRequest): AllFragmentsRequest = grpcIso.get(r)
-
-  val grpcIso: Iso[grpc.AllFragmentsRequest, AllFragmentsRequest] = Iso[grpc.AllFragmentsRequest, AllFragmentsRequest](
-    r => AllFragmentsRequest(r.actor)
-  )(r => grpc.AllFragmentsRequest(r.actor))
-}
-
 /* --- Response events ---- */
 sealed trait ResponseEvent extends Product with Serializable
 

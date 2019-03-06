@@ -21,3 +21,6 @@ addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.1.0-M11")
 
 // Scalafix
 addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.9.4")
+
+//WartRemover
+addSbtPlugin("org.wartremover" % "sbt-wartremover" % "2.4.1")

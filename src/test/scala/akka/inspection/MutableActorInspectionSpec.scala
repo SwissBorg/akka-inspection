@@ -65,7 +65,8 @@ class MutableActorInspectionSpec
 
       val m = FragmentsRequest(List(FragmentId("yes"), FragmentId("no")), inspectableRef.toId)
 
-      val expectedFragment = Map(FragmentId("yes") -> RenderedFragment("yes = 1"), FragmentId("no") -> RenderedFragment("no = 2"))
+      val expectedFragment =
+        Map(FragmentId("yes") -> RenderedFragment("yes = 1"), FragmentId("no") -> RenderedFragment("no = 2"))
 
       inspectableRef.ref ! 42
 

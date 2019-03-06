@@ -38,26 +38,22 @@ final private[manager] case class State(
 
   def inspectableActorIds: Set[InspectableActorRef] = inspectableActors.actorIds
 
-  def groups(id: String): Either[ActorNotInspectable, Set[Group]] =
-    inspectableActors.fromId(id).map(groups.groups)
+  def groupsOf(id: String): Either[ActorNotInspectable, Set[Group]] =
+    inspectableActors.fromId(id).map(groups.groupsOf)
 
   def inGroup(g: Group): Set[InspectableActorRef] = groups.inGroup(g)
 
   def fragmentIds(actor: String): Either[ActorNotInspectable, Set[FragmentId]] =
     inspectableActors.fromId(actor).map(fragments.stateFragmentsIds)
-
-  def stash(r: ResponseEvent): State = copy(requestQueue = requestQueue.enqueue(r))
-
-  def optionUnstash: Option[(ResponseEvent, State)] = requestQueue.dequeueOption.map {
-    case (e, q0) => (e, copy(requestQueue = q0))
-  }
 }
 
 private[manager] object State {
   def empty(implicit materializer: Materializer): State =
-    State(inspectableActors = InspectableActors.empty,
-          fragments = Fragments.empty,
-          groups = Groups.empty,
-          sourceQueues = SourceQueues.empty,
-          requestQueue = Queue.empty)
+    State(
+      inspectableActors = InspectableActors.empty,
+      fragments = Fragments.empty,
+      groups = Groups.empty,
+      sourceQueues = SourceQueues.empty[ActorInspection.FragmentEvent],
+      requestQueue = Queue.empty[ResponseEvent]
+    )
 }

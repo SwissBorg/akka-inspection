@@ -1,8 +1,15 @@
 package akka.inspection
 
 import akka.actor.{ActorSystem, Props}
-import akka.inspection.ActorInspection.{FragmentIdsRequest => _, FragmentIdsResponse => _, FragmentsRequest => _, FragmentsResponse => _, _}
+import akka.inspection.ActorInspection.{
+  FragmentIdsRequest => _,
+  FragmentIdsResponse => _,
+  FragmentsRequest => _,
+  FragmentsResponse => _,
+  _
+}
 import akka.inspection.Actors.StatelessActor
+import akka.inspection.inspectable.{DerivedInspectable, Inspectable}
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import akka.testkit.{ImplicitSender, TestKit}
@@ -26,6 +33,46 @@ class ActorInspectionSpec
     with IntegrationPatience {
 
   "ActorInspectionSpec" must {
+    "correctly expand a fragment-id with a wildcard in first position" in {
+      final case class Baz(inga: Set[List[Char]])
+      final case class Bar(l: List[Double], baz: Baz)
+      final case class Foo(i: Int, s: String, bar: Bar)
+
+      implicit val inspectableFoo: Inspectable[Foo] = DerivedInspectable.gen
+
+      assert(FragmentId("*").expand == Set("i", "s", "bar.l", "bar.baz.inga").map(FragmentId))
+    }
+
+    "correctly expand a fragment-id with a wildcard in a sub-position" in {
+      final case class Baz(inga: Set[List[Char]])
+      final case class Bar(l: List[Double], baz: Baz)
+      final case class Foo(i: Int, s: String, bar: Bar)
+
+      implicit val inspectableFoo: Inspectable[Foo] = DerivedInspectable.gen
+
+      assert(FragmentId("bar.*").expand == Set("bar.l", "bar.baz.inga").map(FragmentId))
+    }
+
+    "correctly expand a fragment-id without a wildcard" in {
+      final case class Baz(inga: Set[List[Char]])
+      final case class Bar(l: List[Double], baz: Baz)
+      final case class Foo(i: Int, s: String, bar: Bar)
+
+      implicit val inspectableFoo: Inspectable[Foo] = DerivedInspectable.gen
+
+      assert(FragmentId("bar.baz.inga").expand == Set(FragmentId("bar.baz.inga")))
+    }
+
+    "correctly expand a fragment-id that do not exist" in {
+      final case class Baz(inga: Set[List[Char]])
+      final case class Bar(l: List[Double], baz: Baz)
+      final case class Foo(i: Int, s: String, bar: Bar)
+
+      implicit val inspectableFoo: Inspectable[Foo] = DerivedInspectable.gen
+
+      assert(FragmentId("bar").expand == Set.empty[FragmentId])
+    }
+
     "correctly inspect a specific fragment" in {
       val inspector = ActorInspector(system)
 
@@ -58,7 +105,68 @@ class ActorInspectionSpec
 
       val m = FragmentsRequest(List(FragmentId("yes"), FragmentId("no")), inspectableRef.toId)
 
-      val expectedFragment = Map(FragmentId("yes") -> RenderedFragment("yes = 1"), FragmentId("no") -> RenderedFragment("no = 2"))
+      val expectedFragment =
+        Map(FragmentId("yes") -> RenderedFragment("yes = 1"), FragmentId("no") -> RenderedFragment("no = 2"))
+
+      inspectableRef.ref ! 42
+
+      eventually(
+        Await.result(
+          (for {
+            grpcResponse <- OptionT.liftF(inspector.requestFragments(m.toGRPC))
+            response <- OptionT.fromOption[Future](FragmentsResponse.fromGRPC(grpcResponse))
+          } yield response).value.map {
+            case Some(FragmentsResponse(Right(fragments))) => assert(fragments == expectedFragment)
+            case r                                         => assert(false, r)
+          },
+          Duration.Inf
+        )
+      )
+    }
+
+    "correctly inspect all the fragments using a wildcard" in {
+      val inspector = ActorInspector(system)
+
+      val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
+
+      val m = FragmentsRequest(List(FragmentId("*")), inspectableRef.toId)
+
+      val expectedFragment =
+        Map(
+          FragmentId("yes") -> RenderedFragment("yes = 1"),
+          FragmentId("no") -> RenderedFragment("no = 2"),
+          FragmentId("maybe.maybeYes") -> RenderedFragment("maybe.maybeYes = 3"),
+          FragmentId("maybe.maybeNo") -> RenderedFragment("maybe.maybeNo = 4")
+        )
+
+      inspectableRef.ref ! 42
+
+      eventually(
+        Await.result(
+          (for {
+            grpcResponse <- OptionT.liftF(inspector.requestFragments(m.toGRPC))
+            response <- OptionT.fromOption[Future](FragmentsResponse.fromGRPC(grpcResponse))
+          } yield response).value.map {
+            case Some(FragmentsResponse(Right(fragments))) => assert(fragments == expectedFragment)
+            case r                                         => assert(false, r)
+          },
+          Duration.Inf
+        )
+      )
+    }
+
+    "correctly inspect sub-fragments using a wildcard" in {
+      val inspector = ActorInspector(system)
+
+      val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
+
+      val m = FragmentsRequest(List(FragmentId("maybe.*")), inspectableRef.toId)
+
+      val expectedFragment =
+        Map(
+          FragmentId("maybe.maybeYes") -> RenderedFragment("maybe.maybeYes = 3"),
+          FragmentId("maybe.maybeNo") -> RenderedFragment("maybe.maybeNo = 4")
+        )
 
       inspectableRef.ref ! 42
 
@@ -80,7 +188,8 @@ class ActorInspectionSpec
       val inspector = ActorInspector(system)
 
       val inspectableRef = InspectableActorRef(system.actorOf(Props[StatelessActor]))
-      val expectedFragmentIds = List(FragmentId("yes"), FragmentId("no"))
+      val expectedFragmentIds =
+        Set(FragmentId("yes"), FragmentId("no"), FragmentId("maybe.maybeNo"), FragmentId("maybe.maybeYes"))
       val expectedState = "main"
 
       eventually(
@@ -90,7 +199,7 @@ class ActorInspectionSpec
             response <- OptionT.fromOption[Future](FragmentIdsResponse.fromGRPC(grpcResponse))
           } yield response).value.map {
             case Some(FragmentIdsResponse(Right((state, ids)))) =>
-              assert(ids.toSet == expectedFragmentIds.toSet && state == expectedState)
+              assert(ids.toSet == expectedFragmentIds && state == expectedState)
             case r => assert(false, r)
           },
           Duration.Inf

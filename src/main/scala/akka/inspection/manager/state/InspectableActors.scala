@@ -2,6 +2,8 @@ package akka.inspection.manager.state
 
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
+import cats._
+import cats.implicits._
 
 /**
  * Manages the inspectable actors.
@@ -17,7 +19,7 @@ final private[manager] case class InspectableActors(private val actors: Set[Insp
   def actorIds: Set[InspectableActorRef] = actors
 
   def fromId(s: String): Either[ActorNotInspectable, InspectableActorRef] =
-    actors.find(_.toId == s).toRight(ActorNotInspectable(s))
+    actors.find(_.toId === s).toRight(ActorNotInspectable(s))
 }
 
 private[manager] object InspectableActors {

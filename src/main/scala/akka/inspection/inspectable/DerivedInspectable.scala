@@ -40,7 +40,10 @@ object DerivedInspectable extends LowPriorityDerivedInspectable {
       val fragmentsR = derivedInspectableR.value.fragments.map {
         case (FragmentId(id), fragment) =>
           (FragmentId(s"${witness.value.name}.$id"),
-           fragment.contramap[FieldType[K, H] :: T](hcons => gen.to(hcons.head)))
+           fragment.contramap[FieldType[K, H] :: T](hcons => gen.to(hcons.head)) match {
+             case Named(name, fragment) => Named(s"${witness.value.name}.$name", fragment)
+             case other                 => other
+           })
       }
 
       derivedInspectableT.fragments.mapValues(_.contramap[FieldType[K, H] :: T](_.tail)) ++ fragmentsR
@@ -48,7 +51,7 @@ object DerivedInspectable extends LowPriorityDerivedInspectable {
   }
 
   implicit val hnilDerivedInspectable: DerivedInspectable[HNil] = new DerivedInspectable[HNil] {
-    override def fragments: Map[FragmentId, inspection.Fragment[HNil]] = Map.empty
+    override def fragments: Map[FragmentId, inspection.Fragment[HNil]] = Map.empty[FragmentId, inspection.Fragment[HNil]]
   }
 }
 

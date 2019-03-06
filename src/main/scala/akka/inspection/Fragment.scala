@@ -2,8 +2,10 @@ package akka.inspection
 
 import akka.inspection.ActorInspection.{FinalizedFragment, RenderedFragment, UndefinedFragment}
 import akka.inspection.util.Render
-import cats.{ContravariantMonoidal, ContravariantSemigroupal, Semigroupal}
+import cats.ContravariantSemigroupal
 import cats.implicits._
+
+import scala.annotation.tailrec
 
 /**
  * Describes how to extract a fragment from the state [[S]].
@@ -90,6 +92,7 @@ private[inspection] object Fragment {
    * Helper to provide [[S]] so that the user that extends [[ActorInspection]]
    * does not have to annotate the state's type when building state fragments.
    */
+  @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
   final class FragmentPartiallyApplied[S](val dummy: Boolean = true) extends AnyVal {
     def apply[T: Render](t: T): Fragment[S] = Fragment(t)
     def always[T: Render](t: => T): Fragment[S] = Fragment.always(t)
@@ -113,6 +116,7 @@ private[inspection] object Fragment {
         case Undefined()           => Undefined()
       }
 
+      @tailrec
       override def product[A, B](fa: Fragment[A], fb: Fragment[B]): Fragment[(A, B)] = (fa, fb) match {
         case (Fix(fragment1), Fix(fragment2))    => Fix(s"($fragment1, $fragment2)")
         case (Fix(fragment1), Always(fragment2)) => Always(() => s"($fragment1, $fragment2)")
@@ -134,9 +138,9 @@ private[inspection] object Fragment {
         case (Undefined(), Given(fragmentB)) => Given { case (_, b) => s"(, ${fragmentB(b)})" }
         case (Undefined(), Undefined())      => Undefined()
 
-        case (fragment1, Named(name, fragment2)) => Named(name, product(fragment1, fragment2))
-        case (Named(name, fragment1), fragment2) => Named(name, product(fragment1, fragment2))
-
+        // TODO looses name
+        case (fragment1, Named(_, fragment2)) => product(fragment1, fragment2)
+        case (Named(_, fragment1), fragment2) => product(fragment1, fragment2)
       }
     }
 }

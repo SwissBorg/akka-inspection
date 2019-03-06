@@ -16,11 +16,11 @@ final private[manager] case class Groups(private val groups: Map[Group, Set[Insp
 
   def inGroup(group: Group): Set[InspectableActorRef] = groups.getOrElse(group, Set.empty)
 
-  def groups(ref: InspectableActorRef): Set[Group] = groups.foldLeft(Set.empty[Group]) {
+  def groupsOf(ref: InspectableActorRef): Set[Group] = groups.foldLeft(Set.empty[Group]) {
     case (groups, (group, refs)) => if (refs.contains(ref)) groups + group else groups
   }
 }
 
 private[manager] object Groups {
-  val empty: Groups = Groups(Map.empty)
+  val empty: Groups = Groups(Map.empty[Group, Set[InspectableActorRef]])
 }

@@ -15,5 +15,5 @@ final private[manager] case class Fragments(private val fragmentIds: Map[Inspect
 }
 
 private[manager] object Fragments {
-  val empty: Fragments = Fragments(Map.empty)
+  val empty: Fragments = Fragments(Map.empty[InspectableActorRef, Set[FragmentId]])
 }

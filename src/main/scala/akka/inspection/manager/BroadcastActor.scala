@@ -24,6 +24,7 @@ class BroadcastActor(manager: ActorRef) extends Actor with Stash with ActorLoggi
   /**
    * Waits for the set of managers.
    */
+  @SuppressWarnings(Array("org.wartremover.warts.Throw"))
   private def awaitingManagers: Receive = {
     case g @ GetSuccess(ManagersKey, _) =>
       val managers = g.get(ManagersKey).elements
@@ -87,12 +88,12 @@ class BroadcastActor(manager: ActorRef) extends Actor with Stash with ActorLoggi
    * work elements that, after removal, are not waiting on any manager anymore.
    */
   private def update(workList: Map[UUID, Work], stopWaitingFor: ActorRef): Map[UUID, Work] =
-    workList.flatMap {
+    workList.toList.mapFilter {
       case (id, Work(waitingFor, replyTo, response)) =>
         val waitingFor0 = waitingFor - stopWaitingFor
         if (waitingFor0.isEmpty) None
         else Some((id, Work(waitingFor0, replyTo, response)))
-    }
+    }.toMap
 }
 
 object BroadcastActor {
@@ -113,7 +114,7 @@ object BroadcastActor {
   }
 
   object BroadcastRequest {
-    def apply(request: RequestEvent, initResponse: ResponseEvent, replyTo: ActorRef): BroadcastRequest =
+    def create(request: RequestEvent, initResponse: ResponseEvent, replyTo: ActorRef): BroadcastRequest =
       BroadcastRequest(request, initResponse, replyTo, UUID.randomUUID())
   }
 

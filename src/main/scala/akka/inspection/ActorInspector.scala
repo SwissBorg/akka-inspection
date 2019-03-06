@@ -10,7 +10,7 @@ object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdPr
 
     val impl: ActorInspectorImpl = new ActorInspectorImpl(system, actorInspectorManager)
 
-    ConfigFactory.defaultApplication()
+//    val conf = ConfigFactory.defaultApplication()
 
     // Start server
 //    new ActorInspectorServer(impl,

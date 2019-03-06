@@ -38,6 +38,7 @@ class ActorInspectorManager extends Actor {
   /**
    * Handles broadcast requests sent by other manager's broadcaster.
    */
+  @SuppressWarnings(Array("org.wartremover.warts.Throw"))
   private def broadcastRequests(s: State): Receive = {
     case request: BroadcastRequest =>
       val replyTo = sender()
@@ -86,6 +87,7 @@ class ActorInspectorManager extends Actor {
   /**
    * Handles the inspection specific requests.
    */
+  @SuppressWarnings(Array("org.wartremover.warts.Throw"))
   private def infoRequests(s: State): Receive = {
     case r: RequestEvent =>
       val replyTo = sender()
@@ -93,13 +95,13 @@ class ActorInspectorManager extends Actor {
         case Success(Some(response)) =>
           response match {
             /* Another manager might be able to respond. */
-            case GroupsResponse(Left(_))      => broadcaster ! BroadcastRequest(r, response, replyTo)
-            case FragmentsResponse(Left(_))   => broadcaster ! BroadcastRequest(r, response, replyTo)
-            case FragmentIdsResponse(Left(_)) => broadcaster ! BroadcastRequest(r, response, replyTo)
+            case GroupsResponse(Left(_))      => broadcaster ! BroadcastRequest.create(r, response, replyTo)
+            case FragmentsResponse(Left(_))   => broadcaster ! BroadcastRequest.create(r, response, replyTo)
+            case FragmentIdsResponse(Left(_)) => broadcaster ! BroadcastRequest.create(r, response, replyTo)
 
             /* Request that have to be broadcast to be fully answered. */
-            case _: GroupResponse             => broadcaster ! BroadcastRequest(r, response, replyTo)
-            case _: InspectableActorsResponse => broadcaster ! BroadcastRequest(r, response, replyTo)
+            case _: GroupResponse             => broadcaster ! BroadcastRequest.create(r, response, replyTo)
+            case _: InspectableActorsResponse => broadcaster ! BroadcastRequest.create(r, response, replyTo)
 
             /*
              An inspectable actor only exists in a single manager.
@@ -138,10 +140,8 @@ class ActorInspectorManager extends Actor {
                           id: Option[UUID]): OptionT[Future, ResponseEvent] =
     request match {
       case InspectableActorsRequest => OptionT.pure(InspectableActorsResponse(s.inspectableActorIds.toList.map(_.toId)))
-      case GroupsRequest(id)        => OptionT.pure(GroupsResponse(s.groups(id).map(_.toList)))
+      case GroupsRequest(id)        => OptionT.pure(GroupsResponse(s.groupsOf(id).map(_.toList)))
       case GroupRequest(group)      => OptionT.pure(GroupResponse(s.inGroup(group).toList.map(_.toId)))
-
-      case AllFragmentsRequest(actor) => _responseTo(FragmentsRequest(List.empty, actor), s, originalRequester, id)
 
       case FragmentsRequest(fragments, actor) =>
         s.offer(ActorInspection.FragmentsRequest(fragments, self, originalRequester, id), actor) match {
@@ -188,7 +188,7 @@ object ActorInspectorManager {
    * An [[ActorRef]] that can be inspected.
    */
   sealed abstract case class InspectableActorRef(ref: ActorRef) {
-    val toId: String = ref.path.toString // TODO render?
+    val toId: String = s"${ref.path}"
   }
 
   object InspectableActorRef {

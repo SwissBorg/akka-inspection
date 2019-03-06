@@ -50,3 +50,8 @@ lazy val root = (project in file("."))
   .settings(parallelExecution in Test := false)
 
 scalacOptions += "-Ywarn-unused"
+
+wartremoverErrors in (Compile, compile) ++= Warts.allBut(Wart.Any, Wart.Nothing, Wart.ImplicitParameter, Wart.Recursion)
+
+wartremoverExcluded += baseDirectory.value / "src_managed" / "main" / "scala" / "akka" / "inspection" / "grpc"
+wartremoverExcluded += sourceManaged.value

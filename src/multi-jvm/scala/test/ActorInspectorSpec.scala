@@ -154,7 +154,14 @@ class ActorInspectorSpec
                     assert(
                       FragmentIdsResponse
                         .fromGRPC(res)
-                        .exists(_.ids.fold(_ => false, r => r._2.map(_.id).toSet == Set("yes", "no") && r._1 == "main"))
+                        .exists(
+                          _.ids
+                            .fold(_ => false,
+                                  r =>
+                                    r._2
+                                      .map(_.id)
+                                      .toSet == Set("yes", "no", "maybe.maybeYes", "maybe.maybeNo") && r._1 == "main")
+                        )
                     )
                   )
                 case Failure(t) => Try(assert(false, t))
@@ -196,7 +203,14 @@ class ActorInspectorSpec
                     assert(
                       FragmentIdsResponse
                         .fromGRPC(res)
-                        .exists(_.ids.fold(_ => false, r => r._2.map(_.id).toSet == Set("yes", "no") && r._1 == "main"))
+                        .exists(
+                          _.ids
+                            .fold(_ => false,
+                                  r =>
+                                    r._2
+                                      .map(_.id)
+                                      .toSet == Set("yes", "no", "maybe.maybeYes", "maybe.maybeNo") && r._1 == "main")
+                        )
                     )
                   )
                 case Failure(t) => Try(assert(false, t))

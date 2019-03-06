@@ -36,7 +36,4 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef)
 
   override def requestFragments(in: grpc.FragmentsRequest): Future[grpc.FragmentsResponse] =
     (actorInspectorManager ? FragmentsRequest.fromGRPC(in)).mapTo[FragmentsResponse].map(_.toGRPC)
-
-  override def requestAllFragments(in: grpc.AllFragmentsRequest): Future[grpc.FragmentsResponse] =
-    (actorInspectorManager ? AllFragmentsRequest.fromGRPC(in)).mapTo[FragmentsResponse].map(_.toGRPC)
 }

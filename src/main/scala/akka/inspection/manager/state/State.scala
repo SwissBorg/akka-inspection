@@ -13,7 +13,7 @@ final private[manager] case class State(
   private val inspectableActors: InspectableActors,
   private val fragments: Fragments,
   private val groups: Groups,
-  private val sourceQueues: SourceQueues[ActorInspection.ActorInspectionEvent],
+  private val sourceQueues: SourceQueues[ActorInspection.Event],
   private val requestQueue: Queue[ResponseEvent]
 )(implicit materializer: Materializer) {
   def put(ref: InspectableActorRef, keys: Set[FragmentId], groups: Set[Group]): State =
@@ -32,8 +32,7 @@ final private[manager] case class State(
       sourceQueues = sourceQueues.remove(ref)
     )
 
-  def offer(request: ActorInspection.ActorInspectionEvent,
-            actor: String): Either[ActorNotInspectable, Future[QueueOfferResult]] =
+  def offer(request: ActorInspection.Event, actor: String): Either[ActorNotInspectable, Future[QueueOfferResult]] =
     inspectableActors.fromId(actor).map(sourceQueues.offer(request, _))
 
   def inspectableActorIds: Set[InspectableActorRef] = inspectableActors.actorIds
@@ -53,7 +52,7 @@ private[manager] object State {
       inspectableActors = InspectableActors.empty,
       fragments = Fragments.empty,
       groups = Groups.empty,
-      sourceQueues = SourceQueues.empty[ActorInspection.ActorInspectionEvent],
+      sourceQueues = SourceQueues.empty,
       requestQueue = Queue.empty[ResponseEvent]
     )
 }

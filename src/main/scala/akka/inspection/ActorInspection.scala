@@ -4,7 +4,6 @@ import java.util.UUID
 
 import akka.actor.{Actor, ActorRef}
 import akka.inspection.inspectable.Inspectable
-import cats._
 import cats.implicits._
 
 // TODO DOC
@@ -74,7 +73,7 @@ trait ActorInspection extends Actor {
 
 private[inspection] object ActorInspection {
 
-  sealed abstract class FragmentEvent extends Product with Serializable {
+  sealed abstract class Event extends Product with Serializable {
     val id: Option[UUID]
   }
 
@@ -89,7 +88,7 @@ private[inspection] object ActorInspection {
                                     replyTo: ActorRef,
                                     originalRequester: ActorRef,
                                     id: Option[UUID])
-      extends FragmentEvent {
+      extends Event {
     def respondWith(state: String, fragments: Map[FragmentId, FinalizedFragment]): FragmentsResponse =
       FragmentsResponse(state, fragments, originalRequester, id)
   }
@@ -106,10 +105,10 @@ private[inspection] object ActorInspection {
                                      fragments: Map[FragmentId, FinalizedFragment],
                                      originalRequester: ActorRef,
                                      id: Option[UUID])
-      extends FragmentEvent
+      extends Event
 
   final case class FragmentIdsRequest(replyTo: ActorRef, originalRequester: ActorRef, id: Option[UUID])
-      extends FragmentEvent {
+      extends Event {
     def respondWith(state: String, fragmentIds: Set[FragmentId]): FragmentIdsResponse =
       FragmentIdsResponse(state, fragmentIds, originalRequester, id)
   }
@@ -126,7 +125,7 @@ private[inspection] object ActorInspection {
                                        fragmentIds: Set[FragmentId],
                                        originalRequester: ActorRef,
                                        id: Option[UUID])
-      extends FragmentEvent
+      extends Event
 
   /**
    * Represents the identifier of a subset of an actor's state.

@@ -23,7 +23,9 @@ class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef)
   def release(ref: ActorRef): Unit = actorInspectorManager ! Release(InspectableActorRef(ref))
 
   override def requestInspectableActors(in: grpc.InspectableActorsRequest): Future[grpc.InspectableActorsResponse] =
-    (actorInspectorManager ? InspectableActorsRequest.fromGRPC(in)).mapTo[InspectableActorsResponse].transform(_.map(_.toGRPC))
+    (actorInspectorManager ? InspectableActorsRequest.fromGRPC(in))
+      .mapTo[InspectableActorsResponse]
+      .transform(_.map(_.toGRPC))
 
   override def requestGroups(in: grpc.GroupsRequest): Future[grpc.GroupsResponse] =
     (actorInspectorManager ? GroupsRequest.fromGRPC(in)).mapTo[GroupsResponse].transform(_.map(_.toGRPC))

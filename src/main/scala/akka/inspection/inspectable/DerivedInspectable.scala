@@ -12,6 +12,14 @@ import shapeless.{::, Cached, HList, HNil, LabelledGeneric, Lazy, Strict, Witnes
 
 sealed trait DerivedInspectable[A] extends Inspectable[A]
 
+object Bla extends App {
+  final case class Bar(l: List[Int])
+  final case class Foo(i: Int, bar: Bar)
+
+  val a: Inspectable[Foo] = DerivedInspectable.gen
+  println(a.fragments(FragmentId("bar.l")).run(Foo(5, Bar(List(1, 2, 3)))))
+}
+
 object DerivedInspectable extends LowPriorityDerivedInspectable {
 
   /**

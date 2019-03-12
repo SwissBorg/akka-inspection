@@ -5,7 +5,7 @@ name := "akka-inspection"
 
 version := "0.0.1"
 
-scalaVersion := "2.12.6"
+scalaVersion := "2.12.8"
 sbtVersion := "1.2.1"
 
 scalacOptions += "-Ypartial-unification"
@@ -33,7 +33,7 @@ libraryDependencies ++= Seq(
   "com.github.julien-truffaut" %% "monocle-law" % monocleVersion % Test,
   "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
   "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % Test,
-  "org.typelevel" %% "cats-testkit" % "1.1.0" % Test,
+  "org.typelevel" %% "cats-testkit" % "1.6.0" % Test,
   "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.6" % Test,
   "org.scalatest" %% "scalatest" % scalatestVersion % Test
 )

@@ -4,20 +4,18 @@ import akka.actor.Props
 import akka.cluster.Cluster
 import akka.inspection.ActorInspector
 import akka.inspection.Actors.{MutableActor, StatelessActor}
-import akka.inspection.manager.state.Group
 import akka.inspection.manager._
+import akka.inspection.manager.state.Group
 import akka.remote.testkit.MultiNodeSpec
 import akka.testkit.ImplicitSender
 import org.scalatest.Assertion
 import org.scalatest.concurrent.{Eventually, IntegrationPatience}
-import org.scalatest.time.{Second, Seconds, Span}
 import test.helpers.{MultiNodeBasicConfig, STMultiNodeSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Promise}
 import scala.util.{Failure, Success, Try}
-import cats.implicits._
 
 class ActorInspectorSpecMultiJvmNode1 extends ActorInspectorSpec
 class ActorInspectorSpecMultiJvmNode2 extends ActorInspectorSpec

@@ -2,6 +2,7 @@ package akka.inspection
 
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
 import akka.inspection.manager.ActorInspectorManager
+import akka.inspection.server.ActorInspectorServer
 import com.typesafe.config.ConfigFactory
 
 object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdProvider {
@@ -10,13 +11,16 @@ object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdPr
 
     val impl: ActorInspectorImpl = new ActorInspectorImpl(system, actorInspectorManager)
 
-//    val conf = ConfigFactory.defaultApplication()
+    val conf = ConfigFactory.load()
 
-    // Start server
-//    new ActorInspectorServer(impl,
-//                             system,
-//                             conf.getString("akka.inspection.server.hostname"),
-//                             conf.getInt("akka.inspection.server.port")).run()
+//     Start server
+    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+    val _ = if (conf.getBoolean("akka.inspection.enable-server")) {
+      new ActorInspectorServer(impl,
+                               system,
+                               conf.getString("akka.inspection.server.hostname"),
+                               conf.getInt("akka.inspection.server.port")).run()
+    }
 
     impl
   }

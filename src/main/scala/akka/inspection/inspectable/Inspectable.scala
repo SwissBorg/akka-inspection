@@ -24,9 +24,6 @@ object Inspectable {
     override def fragments: Map[FragmentId, inspection.Fragment[A]] = fragments0
   }
 
-  implicit def pair[A, B](implicit ia: Inspectable[A], ib: Inspectable[B]): Inspectable[(A, B)] =
-    Semigroupal[Inspectable].product(ia, ib)
-
   implicit def inspectableContravariantMonoidal: ContravariantMonoidal[Inspectable] =
     new ContravariantMonoidal[Inspectable] {
       override def contramap[A, B](fa: Inspectable[A])(f: B => A): Inspectable[B] = new Inspectable[B] {
@@ -54,15 +51,4 @@ object Inspectable {
           }
         }
     }
-
-//  type Typeclass[T] = Inspectable[T]
-//  def combine[T](caseClass: CaseClass[Inspectable, T]): Inspectable[T] = new Inspectable[T] {
-//    override def fragments: Map[FragmentId, inspection.Fragment[T]] =
-//      caseClass.parameters.foldLeft(Map.empty[FragmentId, Fragment]) {
-//        case (fragments, param) => fragments + (FragmentId(param.label) -> Fragment.contramap(param.dereference).state(param.dereference).contramap(param.dereference))
-//
-////          param.typeclass.fragments.mapValues(_.contramap[T](param.dereference))
-//      }
-//  }
-//  implicit def gen[T]: Typeclass[T] = macro Magnolia.gen[T]
 }

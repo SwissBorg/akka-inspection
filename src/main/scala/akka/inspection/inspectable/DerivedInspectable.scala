@@ -12,14 +12,6 @@ import shapeless.{::, Cached, HList, HNil, LabelledGeneric, Lazy, Strict, Witnes
 
 sealed trait DerivedInspectable[A] extends Inspectable[A]
 
-object Bla extends App {
-  final case class Bar(l: List[Int])
-  final case class Foo(i: Int, bar: Bar)
-
-  val a: Inspectable[Foo] = DerivedInspectable.gen
-  println(a.fragments(FragmentId("bar.l")).run(Foo(5, Bar(List(1, 2, 3)))))
-}
-
 object DerivedInspectable extends LowPriorityDerivedInspectable {
 
   /**
@@ -41,11 +33,11 @@ object DerivedInspectable extends LowPriorityDerivedInspectable {
   implicit def hconsDerivedInspectable0[K <: Symbol, H, Repr <: HList, T <: HList](
     implicit witness: Witness.Aux[K],
     gen: LabelledGeneric.Aux[H, Repr],
-    derivedInspectableR: Lazy[DerivedInspectable[Repr]],
+    derivedInspectableRepr: Lazy[DerivedInspectable[Repr]],
     derivedInspectableT: DerivedInspectable[T]
   ): DerivedInspectable[FieldType[K, H] :: T] = new DerivedInspectable[FieldType[K, H] :: T] {
     override def fragments: Map[FragmentId, inspection.Fragment[FieldType[K, H] :: T]] = {
-      val fragmentsR = derivedInspectableR.value.fragments.map {
+      val fragmentsR = derivedInspectableRepr.value.fragments.map {
         case (FragmentId(id), fragment) =>
           (FragmentId(s"${witness.value.name}.$id"),
            fragment.contramap[FieldType[K, H] :: T](hcons => gen.to(hcons.head)) match {
@@ -68,11 +60,11 @@ trait LowPriorityDerivedInspectable {
   implicit def hconsDerivedInspectable1[K <: Symbol, H, T <: HList](
     implicit witness: Witness.Aux[K],
     renderH: Lazy[Render[FieldType[K, H]]],
-    inspectableT: DerivedInspectable[T]
+    derivedInspectableT: DerivedInspectable[T]
   ): DerivedInspectable[FieldType[K, H] :: T] =
     new DerivedInspectable[FieldType[K, H] :: T] {
       override def fragments: Map[ActorInspection.FragmentId, inspection.Fragment[FieldType[K, H] :: T]] =
-        inspectableT.fragments.map {
+        derivedInspectableT.fragments.map {
           case (id, fragment) =>
             (id, fragment.contramap[FieldType[K, H] :: T](_.tail))
         } + (FragmentId(

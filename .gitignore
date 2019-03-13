@@ -4,3 +4,4 @@
 target/
 *.tgz
 worksheet.sc
+*.iml

@@ -10,32 +10,54 @@ sbtVersion := "1.2.1"
 
 scalacOptions += "-Ypartial-unification"
 
-val akkaVersion = "2.5.21"
-val akkaHTTPVersion = "10.1.7"
-val catsVersion = "1.6.0"
+val akkaVersion      = "2.5.21"
+val akkaHTTPVersion  = "10.1.7"
+val catsVersion      = "1.6.0"
 val scalatestVersion = "3.0.5"
-val monocleVersion = "1.5.0"
-val scoptVersion = "4.0.0-RC2"
+val monocleVersion   = "1.5.0"
+val scoptVersion     = "4.0.0-RC2"
 val shapelessVersion = "2.3.3"
 
-libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-  "com.typesafe.akka" %% "akka-cluster" % akkaVersion,
-  "com.typesafe.akka" %% "akka-cluster-tools" % akkaVersion,
-  "com.typesafe.akka" %% "akka-distributed-data" % akkaVersion,
-  "com.typesafe.akka" %% "akka-stream" % akkaVersion,
-  "com.typesafe.akka" %% "akka-http" % akkaHTTPVersion,
-  "org.typelevel" %% "cats-core" % catsVersion,
-  "com.chuusai" %% "shapeless" % shapelessVersion,
-  "com.github.julien-truffaut" %% "monocle-core" % monocleVersion,
-  "com.github.scopt" %% "scopt" % scoptVersion,
-  "me.lyh" %% "magnolia" % "0.10.1-jto",
-  "com.github.julien-truffaut" %% "monocle-law" % monocleVersion % Test,
-  "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
-  "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion % Test,
-  "org.typelevel" %% "cats-testkit" % "1.6.0" % Test,
-  "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.6" % Test,
-  "org.scalatest" %% "scalatest" % scalatestVersion % Test
+lazy val commonDependencies = Seq(
+  libraryDependencies += "com.typesafe.akka"          %% "akka-actor"                % akkaVersion,
+  libraryDependencies += "com.typesafe.akka"          %% "akka-cluster"              % akkaVersion,
+  libraryDependencies += "com.typesafe.akka"          %% "akka-cluster-tools"        % akkaVersion,
+  libraryDependencies += "com.typesafe.akka"          %% "akka-distributed-data"     % akkaVersion,
+  libraryDependencies += "com.typesafe.akka"          %% "akka-stream"               % akkaVersion,
+  libraryDependencies += "com.typesafe.akka"          %% "akka-http"                 % akkaHTTPVersion,
+  libraryDependencies += "org.typelevel"              %% "cats-core"                 % catsVersion,
+  libraryDependencies += "com.chuusai"                %% "shapeless"                 % shapelessVersion,
+  libraryDependencies += "com.github.julien-truffaut" %% "monocle-core"              % monocleVersion,
+  libraryDependencies += "com.github.scopt"           %% "scopt"                     % scoptVersion,
+  libraryDependencies += "com.github.julien-truffaut" %% "monocle-law"               % monocleVersion % Test,
+  libraryDependencies += "com.typesafe.akka"          %% "akka-testkit"              % akkaVersion % Test,
+  libraryDependencies += "com.typesafe.akka"          %% "akka-multi-node-testkit"   % akkaVersion % Test,
+  libraryDependencies += "org.typelevel"              %% "cats-testkit"              % "1.6.0" % Test,
+  libraryDependencies += "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.6" % Test,
+  libraryDependencies += "org.scalatest"              %% "scalatest"                 % scalatestVersion % Test
+)
+
+lazy val commonScalacOptions = Seq(
+  "-encoding",
+  "UTF-8",
+  "-feature",
+  "-language:existentials",
+  "-language:higherKinds",
+  "-language:implicitConversions",
+  "-language:experimental.macros",
+  "-language:postfixOps",
+  "-unchecked",
+  "-Ywarn-dead-code",
+  "-Ywarn-numeric-widen",
+  "-Ywarn-value-discard",
+  "-Xfuture",
+  "-Yno-adapted-args",
+//  "-Xfatal-warnings"
+)
+
+lazy val commonSettings = Seq(
+  scalacOptions ++= commonScalacOptions,
+  parallelExecution in Test := false,
 )
 
 // GRPC
@@ -43,15 +65,21 @@ enablePlugins(AkkaGrpcPlugin)
 enablePlugins(JavaAgent)
 javaAgents += "org.mortbay.jetty.alpn" % "jetty-alpn-agent" % "2.0.9" % "runtime;test"
 
-lazy val root = (project in file("."))
+//lazy val root = (project in file("."))
+//  .enablePlugins(MultiJvmPlugin)
+//  .configs(MultiJvm)
+//  .settings(multiJvmSettings: _*)
+
+lazy val core = project
+  .settings(commonSettings)
+  .settings(commonDependencies)
   .enablePlugins(MultiJvmPlugin)
+  .enablePlugins(AkkaGrpcPlugin)
+  .enablePlugins(JavaAgent)
   .configs(MultiJvm)
   .settings(multiJvmSettings: _*)
-  .settings(parallelExecution in Test := false)
 
-scalacOptions += "-Ywarn-unused"
-
-wartremoverErrors in (Compile, compile) ++= Warts.allBut(Wart.Any, Wart.Nothing, Wart.ImplicitParameter, Wart.Recursion)
-
-wartremoverExcluded += baseDirectory.value / "src_managed" / "main" / "scala" / "akka" / "inspection" / "grpc"
-wartremoverExcluded += sourceManaged.value
+lazy val client = project
+  .dependsOn(core)
+  .settings(commonSettings)
+  .settings(commonDependencies)

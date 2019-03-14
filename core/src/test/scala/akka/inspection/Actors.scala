@@ -10,7 +10,7 @@ object Actors {
   class MutableActor extends Actor with MutableActorInspection {
     private var i: Int = 0
 
-    override def receive: Receive = withInspection {
+    override def receive: Receive = withInspection("main") {
       case _ => i += 1
     }
 

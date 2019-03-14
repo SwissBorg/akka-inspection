@@ -1,7 +1,7 @@
 package akka.inspection.laws
 
 import akka.inspection.ActorInspection.FragmentId
-import akka.inspection.grpc.{inspection => grpc}
+import akka.inspection.grpc
 import akka.inspection.manager._
 import cats.Eq
 import org.scalacheck.Arbitrary.{arbEither, arbString, arbitrary => getArbitrary}

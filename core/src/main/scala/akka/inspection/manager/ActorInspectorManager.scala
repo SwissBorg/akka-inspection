@@ -58,8 +58,8 @@ class ActorInspectorManager extends Actor {
       FragmentIdsResponse(Either.right((state, fragmentIds.toList)))
 
     // TODO some lense?
-    def convertFragmentsResponse(fragments: Map[FragmentId, FinalizedFragment]): FragmentsResponse =
-      FragmentsResponse(Either.right(fragments))
+    def convertFragmentsResponse(state: String, fragments: Map[FragmentId, FinalizedFragment]): FragmentsResponse =
+      FragmentsResponse(Either.right((state, fragments)))
 
     {
       case ActorInspection.FragmentIdsResponse(state, fragmentIds, originalRequester, id) =>
@@ -68,10 +68,10 @@ class ActorInspectorManager extends Actor {
           case None     => originalRequester ! convertFragmentIdsResponse(state, fragmentIds)
         }
 
-      case ActorInspection.FragmentsResponse(_, fragments, initiator, id) =>
+      case ActorInspection.FragmentsResponse(state, fragments, initiator, id) =>
         id match {
-          case Some(id) => initiator ! BroadcastResponse(convertFragmentsResponse(fragments), id)
-          case None     => initiator ! convertFragmentsResponse(fragments)
+          case Some(id) => initiator ! BroadcastResponse(convertFragmentsResponse(state, fragments), id)
+          case None     => initiator ! convertFragmentsResponse(state, fragments)
         }
     }
   }

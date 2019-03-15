@@ -68,7 +68,8 @@ message FragmentsResponse {
     }
 
     message Fragments {
-        map<string, Fragment> fragments = 1;
+        string state = 1;
+        map<string, Fragment> fragments = 2;
     }
 
     oneof res {

@@ -199,7 +199,8 @@ object FragmentIdsResponse {
     }
 }
 
-final case class FragmentsResponse(fragments: Either[Error, Map[FragmentId, FinalizedFragment]]) extends ResponseEvent {
+final case class FragmentsResponse(fragments: Either[Error, (String, Map[FragmentId, FinalizedFragment])])
+    extends ResponseEvent {
   val toGRPC: grpc.FragmentsResponse = FragmentsResponse.grpcPrism(this)
 }
 
@@ -209,14 +210,14 @@ object FragmentsResponse {
   val grpcPrism: Prism[grpc.FragmentsResponse, FragmentsResponse] =
     Prism.partial[grpc.FragmentsResponse, FragmentsResponse] {
       case grpc.FragmentsResponse(
-          grpc.FragmentsResponse.Res.Fragments(grpc.FragmentsResponse.Fragments(fragments))
+          grpc.FragmentsResponse.Res.Fragments(grpc.FragmentsResponse.Fragments(state, fragments))
           ) =>
-        FragmentsResponse(Right(fragments.map {
+        FragmentsResponse(Right((state, fragments.map {
           case (k, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Fragment(f))) =>
             (FragmentId(k), RenderedFragment(f))
           case (k, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Empty)) =>
             (FragmentId(k), UndefinedFragment)
-        }))
+        })))
       case grpc.FragmentsResponse(
           grpc.FragmentsResponse.Res.Error(
             grpc
@@ -233,13 +234,20 @@ object FragmentsResponse {
           ) =>
         FragmentsResponse(Left(UnreachableInspectableActor(id)))
     } {
-      case FragmentsResponse(Right(fragments)) =>
-        grpc.FragmentsResponse(grpc.FragmentsResponse.Res.Fragments(grpc.FragmentsResponse.Fragments(fragments.map {
-          case (k, UndefinedFragment) =>
-            (k.id, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Empty))
-          case (k, RenderedFragment(fragment)) =>
-            (k.id, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Fragment(fragment)))
-        })))
+      case FragmentsResponse(Right((state, fragments))) =>
+        grpc.FragmentsResponse(
+          grpc.FragmentsResponse.Res.Fragments(
+            grpc.FragmentsResponse.Fragments(
+              state,
+              fragments.map {
+                case (k, UndefinedFragment) =>
+                  (k.id, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Empty))
+                case (k, RenderedFragment(fragment)) =>
+                  (k.id, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Fragment(fragment)))
+              }
+            )
+          )
+        )
       case FragmentsResponse(Left(err)) =>
         err match {
           case ActorNotInspectable(id) =>

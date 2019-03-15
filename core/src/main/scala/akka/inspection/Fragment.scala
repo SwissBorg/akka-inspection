@@ -50,13 +50,6 @@ private[inspection] object Fragment {
     override def run(s: S): FinalizedFragment = UndefinedFragment
   }
 
-  final case class Named[S](name: String, fragment: Fragment[S]) extends Fragment[S] {
-    override def run(s: S): FinalizedFragment = fragment.run(s) match {
-      case RenderedFragment(fragment) => RenderedFragment(s"$name = $fragment")
-      case UndefinedFragment          => UndefinedFragment
-    }
-  }
-
   /**
    * Build a [[Fragment]] independent of the state [[S]].
    */
@@ -101,21 +94,15 @@ private[inspection] object Fragment {
     def undefined: Fragment[S]                   = Fragment.undefined
   }
 
-  implicit class NamedOps[S](private val fragment: Fragment[S]) extends AnyVal {
-    def name(n: String): Fragment[S] = Named(n, fragment)
-  }
-
   implicit val fragmentContravariantSemigroupal: ContravariantSemigroupal[Fragment] =
     new ContravariantSemigroupal[Fragment] {
       override def contramap[A, B](fa: Fragment[A])(f: B => A): Fragment[B] = fa match {
-        case Const(fragment)       => Const(fragment)
-        case Always(fragment)      => Always(fragment)
-        case State(fragment)       => State(fragment.compose(f))
-        case Named(name, fragment) => Named(name, fragment.contramap(f))
-        case Undefined()           => Undefined()
+        case Const(fragment)  => Const(fragment)
+        case Always(fragment) => Always(fragment)
+        case State(fragment)  => State(fragment.compose(f))
+        case Undefined()      => Undefined()
       }
 
-      @tailrec
       override def product[A, B](fa: Fragment[A], fb: Fragment[B]): Fragment[(A, B)] = (fa, fb) match {
         case (Const(fragment1), Const(fragment2))  => Const(s"($fragment1, $fragment2)")
         case (Const(fragment1), Always(fragment2)) => Always(() => s"($fragment1, $fragment2)")
@@ -136,10 +123,6 @@ private[inspection] object Fragment {
         case (Undefined(), Always(fragment)) => Always(() => s"(, $fragment)")
         case (Undefined(), State(fragmentB)) => State { case (_, b) => s"(, ${fragmentB(b)})" }
         case (Undefined(), Undefined())      => Undefined()
-
-        // TODO looses name
-        case (fragment1, Named(_, fragment2)) => product(fragment1, fragment2)
-        case (Named(_, fragment1), fragment2) => product(fragment1, fragment2)
       }
     }
 }

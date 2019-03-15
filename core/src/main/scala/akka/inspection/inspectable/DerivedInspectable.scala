@@ -22,11 +22,10 @@ object DerivedInspectable extends LowPriorityDerivedInspectable {
     new DerivedInspectable[A] {
       override def fragments: Map[ActorInspection.FragmentId, inspection.Fragment[A]] =
         inspectableRepr.value.value.fragments.map {
-          case (id, Const(fragment))       => id -> Const[A](fragment)
-          case (id, Always(fragment))      => id -> Always[A](fragment)
-          case (id, State(fragment))       => id -> State[A](fragment.compose(gen.to))
-          case (id, Named(name, fragment)) => id -> Named[A](name, fragment.contramap(gen.to))
-          case (id, Undefined())           => id -> Undefined[A]()
+          case (id, Const(fragment))  => id -> Const[A](fragment)
+          case (id, Always(fragment)) => id -> Always[A](fragment)
+          case (id, State(fragment))  => id -> State[A](fragment.compose(gen.to))
+          case (id, Undefined())      => id -> Undefined[A]()
         }
     }
 
@@ -40,10 +39,7 @@ object DerivedInspectable extends LowPriorityDerivedInspectable {
       val fragmentsR = derivedInspectableRepr.value.fragments.map {
         case (FragmentId(id), fragment) =>
           (FragmentId(s"${witness.value.name}.$id"),
-           fragment.contramap[FieldType[K, H] :: T](hcons => gen.to(hcons.head)) match {
-             case Named(name, fragment) => Named(s"${witness.value.name}.$name", fragment)
-             case other                 => other
-           })
+           fragment.contramap[FieldType[K, H] :: T](hcons => gen.to(hcons.head)))
       }
 
       derivedInspectableT.fragments.mapValues(_.contramap[FieldType[K, H] :: T](_.tail)) ++ fragmentsR
@@ -69,6 +65,6 @@ trait LowPriorityDerivedInspectable {
             (id, fragment.contramap[FieldType[K, H] :: T](_.tail))
         } + (FragmentId(
           witness.value.name
-        ) -> Fragment.state(_.head)(renderH.value).name(witness.value.name))
+        ) -> Fragment.state(_.head)(renderH.value))
     }
 }

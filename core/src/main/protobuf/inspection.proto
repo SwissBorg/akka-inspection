@@ -61,15 +61,9 @@ message FragmentsRequest {
     repeated string fragment_ids = 2;
 }
 message FragmentsResponse {
-    message Fragment {
-        oneof res {
-            string fragment = 1;
-        }
-    }
-
     message Fragments {
         string state = 1;
-        map<string, Fragment> fragments = 2;
+        map<string, string> fragments = 2;
     }
 
     oneof res {

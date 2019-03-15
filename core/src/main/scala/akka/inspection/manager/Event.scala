@@ -213,10 +213,8 @@ object FragmentsResponse {
           grpc.FragmentsResponse.Res.Fragments(grpc.FragmentsResponse.Fragments(state, fragments))
           ) =>
         FragmentsResponse(Right((state, fragments.map {
-          case (k, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Fragment(f))) =>
-            (FragmentId(k), RenderedFragment(f))
-          case (k, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Empty)) =>
-            (FragmentId(k), UndefinedFragment)
+          case (k, v) =>
+            (FragmentId(k), RenderedFragment(v))
         })))
       case grpc.FragmentsResponse(
           grpc.FragmentsResponse.Res.Error(
@@ -240,10 +238,8 @@ object FragmentsResponse {
             grpc.FragmentsResponse.Fragments(
               state,
               fragments.map {
-                case (k, UndefinedFragment) =>
-                  (k.id, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Empty))
-                case (k, RenderedFragment(fragment)) =>
-                  (k.id, grpc.FragmentsResponse.Fragment(grpc.FragmentsResponse.Fragment.Res.Fragment(fragment)))
+                case (k, UndefinedFragment) => (k.id, "UNDEFINED")
+                case (k, RenderedFragment(fragment)) => (k.id, fragment)
               }
             )
           )

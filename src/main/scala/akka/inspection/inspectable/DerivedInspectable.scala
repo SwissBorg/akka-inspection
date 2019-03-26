@@ -24,7 +24,7 @@ object DerivedInspectable extends LowPriorityDerivedInspectable {
   def gen[A, Repr](implicit gen: LabelledGeneric.Aux[A, Repr],
                    inspectableRepr: Cached[Strict[DerivedInspectable[Repr]]]): DerivedInspectable[A] =
     new DerivedInspectable[A] {
-      override def fragments: Map[FragmentId, inspection.Fragment[A]] =
+      override val fragments: Map[FragmentId, inspection.Fragment[A]] =
         inspectableRepr.value.value.fragments.map {
           case (id, Const(fragment))  => id -> Const[A](fragment)
           case (id, Always(fragment)) => id -> Always[A](fragment)
@@ -39,7 +39,7 @@ object DerivedInspectable extends LowPriorityDerivedInspectable {
     derivedInspectableRepr: Lazy[DerivedInspectable[Repr]],
     derivedInspectableT: DerivedInspectable[T]
   ): DerivedInspectable[FieldType[K, H] :: T] = new DerivedInspectable[FieldType[K, H] :: T] {
-    override def fragments: Map[FragmentId, inspection.Fragment[FieldType[K, H] :: T]] = {
+    override val fragments: Map[FragmentId, inspection.Fragment[FieldType[K, H] :: T]] = {
       val fragmentsR = derivedInspectableRepr.value.fragments.map {
         case (FragmentId(id), fragment) =>
           (FragmentId(s"${witness.value.name}.$id"),
@@ -51,7 +51,7 @@ object DerivedInspectable extends LowPriorityDerivedInspectable {
   }
 
   implicit val hnilDerivedInspectable: DerivedInspectable[HNil] = new DerivedInspectable[HNil] {
-    override def fragments: Map[FragmentId, inspection.Fragment[HNil]] =
+    override val fragments: Map[FragmentId, inspection.Fragment[HNil]] =
       Map.empty[FragmentId, inspection.Fragment[HNil]]
   }
 }
@@ -63,7 +63,7 @@ trait LowPriorityDerivedInspectable {
     derivedInspectableT: DerivedInspectable[T]
   ): DerivedInspectable[FieldType[K, H] :: T] =
     new DerivedInspectable[FieldType[K, H] :: T] {
-      override def fragments: Map[FragmentId, inspection.Fragment[FieldType[K, H] :: T]] =
+      override val fragments: Map[FragmentId, inspection.Fragment[FieldType[K, H] :: T]] =
         derivedInspectableT.fragments.map {
           case (id, fragment) =>
             (id, fragment.contramap[FieldType[K, H] :: T](_.tail))

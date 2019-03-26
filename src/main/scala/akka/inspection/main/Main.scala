@@ -1,10 +1,9 @@
 package akka.inspection.main
 
 import akka.actor.{Actor, ActorSystem, Props}
-import akka.inspection.FragmentId
 import akka.inspection.inspectable.{DerivedInspectable, Inspectable}
-import akka.inspection.{ActorInspection, Fragment, ImmutableActorInspection, MutableActorInspection}
 import akka.inspection.manager.state.Group
+import akka.inspection.{Fragment, ImmutableActorInspection, MutableActorInspection}
 import com.typesafe.config.{Config, ConfigFactory}
 
 object Main {
@@ -17,7 +16,6 @@ object Main {
   }
 
   class MutableActor extends Actor with MutableActorInspection {
-    @SuppressWarnings(Array("org.wartremover.warts.Var"))
     private var i: Int = 0
 
     override def receive: Receive = { case _ => i += 1 }

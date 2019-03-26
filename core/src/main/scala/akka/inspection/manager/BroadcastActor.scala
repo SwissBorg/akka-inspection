@@ -32,8 +32,8 @@ class BroadcastActor(manager: ActorRef) extends Actor with Stash with ActorLoggi
       context.become(receiveS(managers, Map.empty))
       unstashAll()
 
-    case GetFailure(ManagersKey, _) ⇒ throw new IllegalStateException("Woopsie.")
-    case NotFound(ManagersKey, _)   ⇒ throw new IllegalStateException("Woopsie.")
+    case GetFailure(ManagersKey, _) ⇒ throw new Exception("Could not get the ddata key.")
+    case NotFound(ManagersKey, _)   ⇒ throw new Exception("Ddata key not found.")
 
     case _: BroadcastRequest => stash()
   }

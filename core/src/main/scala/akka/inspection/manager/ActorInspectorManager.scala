@@ -2,7 +2,7 @@ package akka.inspection.manager
 
 import java.util.UUID
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.inspection.ActorInspection
 import akka.inspection.ActorInspection.{FinalizedFragment, FragmentId}
 import akka.inspection.manager.BroadcastActor._
@@ -18,7 +18,7 @@ import scala.util.{Failure, Success}
  * Manages all the requests to inspect actors.
  *
  */
-class ActorInspectorManager extends Actor {
+class ActorInspectorManager extends Actor with ActorLogging {
   implicit private val ec: ExecutionContext = context.dispatcher
   implicit private val mat: Materializer    = ActorMaterializer()
 
@@ -38,7 +38,6 @@ class ActorInspectorManager extends Actor {
   /**
    * Handles broadcast requests sent by other manager's broadcaster.
    */
-  @SuppressWarnings(Array("org.wartremover.warts.Throw"))
   private def broadcastRequests(s: State): Receive = {
     case request: BroadcastRequest =>
       val replyTo = sender()
@@ -46,7 +45,7 @@ class ActorInspectorManager extends Actor {
       responseToBroadcast(request, s, replyTo).value.onComplete {
         case Success(Some(response)) => replyTo ! request.respondWith(response)
         case Success(None)           => () // no need to respond
-        case Failure(t)              => throw new IllegalStateException(t)
+        case Failure(t)              => log.error(t.toString)
       }
   }
 
@@ -87,7 +86,6 @@ class ActorInspectorManager extends Actor {
   /**
    * Handles the inspection specific requests.
    */
-  @SuppressWarnings(Array("org.wartremover.warts.Throw"))
   private def infoRequests(s: State): Receive = {
     case r: RequestEvent =>
       val replyTo = sender()
@@ -111,10 +109,10 @@ class ActorInspectorManager extends Actor {
             case GroupsResponse(Right(_))      => replyTo ! response
             case FragmentIdsResponse(Right(_)) => replyTo ! response
 
-            case _ => throw new IllegalStateException(s"$response")
+            case other => log.warning(s"Did not handle: $other")
           }
         case Success(None) => () // no response to send or the future failed
-        case Failure(t)    => throw new IllegalStateException(t)
+        case Failure(t)    => log.error(t.toString)
       }
   }
 

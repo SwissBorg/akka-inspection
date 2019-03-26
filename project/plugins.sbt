@@ -17,3 +17,4 @@ addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.1.0-M11")
 // SBT-update
 addSbtPlugin("com.timushev.sbt" % "sbt-updates" % "0.4.0")
 
+addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.9.4")

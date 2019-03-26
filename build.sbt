@@ -48,11 +48,12 @@ lazy val commonScalacOptions = Seq(
   "-language:postfixOps",
   "-unchecked",
   "-Ywarn-dead-code",
+  "-Ywarn-unused",
   "-Ywarn-numeric-widen",
   "-Ywarn-value-discard",
   "-Xfuture",
   "-Yno-adapted-args",
-//  "-Xfatal-warnings"
+  "-Xfatal-warnings"
 )
 
 lazy val commonSettings = Seq(
@@ -65,23 +66,10 @@ enablePlugins(AkkaGrpcPlugin)
 enablePlugins(JavaAgent)
 javaAgents += "org.mortbay.jetty.alpn" % "jetty-alpn-agent" % "2.0.9" % "runtime;test"
 
-//lazy val root = (project in file("."))
-//  .enablePlugins(MultiJvmPlugin)
-//  .configs(MultiJvm)
-//  .settings(multiJvmSettings: _*)
-
-lazy val core = project
-  .settings(commonSettings)
+lazy val root = (project in file("."))
   .settings(commonDependencies)
   .enablePlugins(MultiJvmPlugin)
   .enablePlugins(AkkaGrpcPlugin)
   .enablePlugins(JavaAgent)
   .configs(MultiJvm)
   .settings(multiJvmSettings: _*)
-
-lazy val client = project
-  .dependsOn(core)
-  .settings(commonSettings)
-  .settings(commonDependencies)
-  .enablePlugins(AkkaGrpcPlugin)
-  .enablePlugins(JavaAgent)

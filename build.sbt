@@ -3,9 +3,7 @@ import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 
 name := "akka-inspection"
 
-ThisBuild / version := "0.1.0"
-ThisBuild / scalaVersion := "2.12.8"
-
+scalaVersion := "2.12.8"
 sbtVersion := "1.2.8"
 
 val akkaVersion                = "2.5.21"

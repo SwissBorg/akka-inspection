@@ -15,8 +15,6 @@ import org.scalacheck.ScalacheckShapeless._
  * Arbitrary instances for akka.inspection
  */
 object arbitrary {
-  implicit val arbResponseEvent: Arbitrary[ResponseEvent] = implicitly[Arbitrary[ResponseEvent]]
-
   implicit val arbGRPCFragmentIdsRequest: Arbitrary[grpc.FragmentIdsRequest] = Arbitrary(
     Gen.alphaNumStr.map(grpc.FragmentIdsRequest(_))
   )

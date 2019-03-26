@@ -6,8 +6,7 @@ import org.scalatest.FunSuite
 import org.typelevel.discipline.scalatest.Discipline
 
 class EventsSpec extends FunSuite with Discipline {
-//  checkAll("FragmentIdsRequest", discipline.IsoTests(FragmentIdsRequest.grpcIso))
+  checkAll("FragmentIdsRequest", discipline.IsoTests(FragmentIdsRequest.grpcIso))
   checkAll("InspectableActorsRequest", discipline.IsoTests(InspectableActorsRequest.grpcIso))
-
   checkAll("FragmentIdsResponse", discipline.PrismTests(FragmentIdsResponse.grpcPrism))
 }

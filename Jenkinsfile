@@ -31,7 +31,7 @@ pipeline {
         stage('Test') {
             steps {
                 gitlabCommitStatus(name: 'test') {
-                    sh 'sbt test'
+                    sh 'sbt test multi-jvm:test'
                 }
             }
         }

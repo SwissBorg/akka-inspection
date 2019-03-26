@@ -1,10 +1,10 @@
-package akka.inspection.server
+package akka.inspection.extension
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.UseHttp2.Always
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.http.scaladsl.{Http, HttpConnectionContext}
-import akka.inspection.{ActorInspectorImpl, grpc}
+import akka.inspection.grpc
 import akka.stream.{ActorMaterializer, Materializer}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -17,7 +17,10 @@ import scala.concurrent.{ExecutionContext, Future}
  * @param interface the interface on which to listen.
  * @param port the port on which to listen.
  */
-class ActorInspectorServer(inspectionService: ActorInspectorImpl, system: ActorSystem, interface: String, port: Int) {
+private[extension] class ActorInspectorServer(inspectionService: ActorInspectorImpl,
+                                              system: ActorSystem,
+                                              interface: String,
+                                              port: Int) {
   implicit val sys: ActorSystem     = system
   implicit val mat: Materializer    = ActorMaterializer()
   implicit val ec: ExecutionContext = sys.dispatcher

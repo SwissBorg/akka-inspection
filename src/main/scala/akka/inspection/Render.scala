@@ -1,4 +1,4 @@
-package akka.inspection.util
+package akka.inspection
 
 import shapeless.labelled.FieldType
 

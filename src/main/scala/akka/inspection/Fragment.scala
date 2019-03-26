@@ -1,7 +1,6 @@
 package akka.inspection
 
 import akka.inspection.ActorInspection.{FinalizedFragment, RenderedFragment, UndefinedFragment}
-import akka.inspection.util.Render
 import cats.Contravariant
 
 /**

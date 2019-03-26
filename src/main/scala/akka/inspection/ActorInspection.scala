@@ -5,13 +5,14 @@ import java.util.UUID
 import akka.actor.{Actor, ActorRef}
 import akka.inspection
 import akka.inspection.ActorInspection._
+import akka.inspection.extension.ActorInspector
 import akka.inspection.inspectable.Inspectable
 
 trait ActorInspection extends Actor {
   type Group = manager.state.Group
 
   type FragmentId = inspection.FragmentId
-  def FragmentId(id: String) = inspection.FragmentId(id)
+  final def FragmentId(id: String) = inspection.FragmentId(id)
 
   /**
    * The groups of which the actor is a member.

@@ -1,7 +1,6 @@
 package akka.inspection.inspectable
 
 import akka.inspection
-import akka.inspection.Fragment.{Always, Const, State, Undefined}
 import akka.inspection.{Fragment, FragmentId}
 
 /**

@@ -1,10 +1,9 @@
-package akka.inspection.inspectable
+package akka.inspection.inspectable.derivation
 
 import akka.inspection
-import akka.inspection.ActorInspection
-import akka.inspection.FragmentId
 import akka.inspection.Fragment._
-import akka.inspection.util.Render
+import akka.inspection.{FragmentId, Render}
+import akka.inspection.inspectable.Inspectable
 import cats.implicits._
 import cats.{Always => _}
 import shapeless.labelled.FieldType

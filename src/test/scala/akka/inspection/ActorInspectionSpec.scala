@@ -1,15 +1,11 @@
 package akka.inspection
 
 import akka.actor.{ActorSystem, Props}
-import akka.inspection.ActorInspection.{
-  FragmentIdsRequest => _,
-  FragmentIdsResponse => _,
-  FragmentsRequest => _,
-  FragmentsResponse => _,
-  _
-}
+import akka.inspection.ActorInspection.{FragmentIdsRequest => _, FragmentIdsResponse => _, FragmentsRequest => _, FragmentsResponse => _, _}
 import akka.inspection.Actors.StatelessActor
-import akka.inspection.inspectable.{DerivedInspectable, Inspectable}
+import akka.inspection.extension.ActorInspector
+import akka.inspection.inspectable.Inspectable
+import akka.inspection.inspectable.derivation.DerivedInspectable
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import akka.testkit.{ImplicitSender, TestKit}

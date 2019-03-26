@@ -1,8 +1,8 @@
-package akka.inspection
+package akka.inspection.extension
 
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
 import akka.inspection.manager.ActorInspectorManager
-import akka.inspection.server.ActorInspectorServer
+import akka.inspection.{ActorInspection, MutableActorInspection}
 import com.typesafe.config.ConfigFactory
 
 /**

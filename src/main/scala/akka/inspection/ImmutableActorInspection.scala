@@ -1,9 +1,21 @@
 package akka.inspection
 
 import akka.actor.{Actor, ActorLogging}
-import akka.inspection.ActorInspection._
 import akka.inspection.inspectable.Inspectable
 
+/**
+ * Adds the ability to inspect the actor from outside the cluster.
+ *
+ * This trait is designed for actors whose state is transformed using `context.become(someReceive(state))`.
+ * Use [[MutableActorInspection]] for actors whose state is transformed by mutating it.
+ *
+ * To do this the existent receive methods have to wrapped with `withInspectionS` or `inspectS` has to
+ * be composed with the existing ones.
+ * These methods rely on instance of the [[Inspectable]] typeclass. An instance can be automatically
+ * derived for product type (i.e. case classes and tuples). Use [[akka.inspection.inspectable.DerivedInspectable.gen]]
+ * to get the instance. If needed, it can also be manually be implemented.
+ *
+ */
 trait ImmutableActorInspection extends ActorInspection with ActorLogging { this: Actor =>
 
   /**
@@ -14,32 +26,8 @@ trait ImmutableActorInspection extends ActorInspection with ActorLogging { this:
    * @tparam S the type of the state.
    * @return a receive that handles inspection requests.
    */
-  final def inspectS[S: Inspectable](state: String)(s: S): Receive = {
-    case request: FragmentIdsRequest =>
-      request.replyTo ! request.respondWith(state, Inspectable[S].fragments.keySet)
-      sender() ! Ack
-
-    case request: FragmentsRequest =>
-      val inspectableS = Inspectable[S]
-
-      val fragmentIds = request.fragmentIds.foldLeft(Set.empty[FragmentId]) {
-        case (fragmentIds, fragmentId) => fragmentIds ++ fragmentId.expand
-      }
-
-      val response = request.respondWith(
-        state,
-        fragmentIds.foldLeft(Map.empty[FragmentId, FinalizedFragment]) {
-          case (fragments, id) =>
-            fragments + (id -> inspectableS.fragments.getOrElse(id, Fragment.undefined).run(s))
-        }
-      )
-
-      request.replyTo ! response
-
-      sender() ! Ack
-
-    case Init => sender() ! Ack
-  }
+  final def inspect[S: Inspectable](state: String)(s: S): Receive =
+    handleInspectionRequests(state, s, Inspectable[S].fragments)
 
   /**
    * Adds handling of inspection requests to `r`.
@@ -50,6 +38,6 @@ trait ImmutableActorInspection extends ActorInspection with ActorLogging { this:
    * @tparam S the type of the state
    * @return a receive adding the handling of inspection requests to `receive`.
    */
-  final def withInspectionS[S: Inspectable](state: String)(s: S)(receive: Receive): Receive =
-    inspectS(state)(s).orElse(receive)
+  final def withInspection[S: Inspectable](state: String)(s: S)(receive: Receive): Receive =
+    inspect(state)(s).orElse(receive)
 }

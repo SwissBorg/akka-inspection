@@ -16,22 +16,28 @@ object Main {
   }
 
   class MutableActor extends Actor with MutableActorInspection {
-    private var i: Int = 0
+    import MutableActor._
 
-    override def receive: Receive = { case _ => i += 1 }
+    private var i: State = State(1)
 
-    override val fragments: Map[FragmentId, Fragment] = Map(
-      FragmentId("yes") -> Fragment.always(i),
-      FragmentId("no")  -> Fragment.always(i + 1)
-    )
+    override def receive: Receive = { case _ => i = State(i.i + 1) }
+
+    override val fragments: Map[FragmentId, Fragment] = fragmentsFrom(i)
 
     override val groups: Set[Group] = Set(Group("hello"), Group("world"))
+  }
+
+  object MutableActor {
+    final case class State(i: Int)
+    object State {
+      implicit val stateInspectable: Inspectable[State] = DerivedInspectable.gen
+    }
   }
 
   class StatelessActor extends Actor with ImmutableActorInspection {
     override def receive: Receive = mainReceive(StatelessActor.State(0))
 
-    def mainReceive(s: StatelessActor.State): Receive = withInspectionS("main")(s) {
+    def mainReceive(s: StatelessActor.State): Receive = withInspection("main")(s) {
       case _ => context.become(mainReceive(s.copy(i = s.i + 1)))
     }
 
@@ -62,7 +68,7 @@ object Main {
 //      case _ => context.become(mainReceive(s.copy(s1 = s.s1 + 1)))
 //    }
 
-    def otherReceive(s2: State2): Receive = inspectS("otherReceive")(s2).orElse(???)
+    def otherReceive(s2: State2): Receive = inspect("otherReceive")(s2).orElse(???)
 
     override val groups: Set[Group] = Set(Group("hello"), Group("world"))
   }

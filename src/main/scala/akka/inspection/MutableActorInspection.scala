@@ -1,7 +1,8 @@
 package akka.inspection
 
 import akka.actor.{Actor, ActorLogging}
-import akka.inspection.ActorInspection._
+import akka.inspection
+import akka.inspection.Fragment.{Always, Const, State, Undefined}
 import akka.inspection.inspectable.Inspectable
 
 /**
@@ -20,30 +21,50 @@ trait MutableActorInspection extends ActorInspection with ActorLogging { this: A
   /**
    * [[Fragment]]s given their id.
    *
+   * If the state is a product (i.e. a case class or tuple) [[fragmentsFrom()]] can be used
+   * to automatically generate an implementation.
+   *
    * @see [[Fragment]]
    */
   val fragments: Map[FragmentId, Fragment]
 
   /**
-   * A receive handling the inspection requests.
+   * Creates an instance for [[fragments]] from an inspectable state `s`.
+   * `s` has to be a variable for this to work.
    *
-   * @param state the name given to the actor's state.
-   * @return a receive handling inspection requests
+   * @param s the state for which to create the map.
+   * @tparam S the type of the state.
+   * @return a map with all the fragments that can be used to implemented [[fragments]].
    */
+  def fragmentsFrom[S: Inspectable](s: => S): Map[FragmentId, Fragment] =
+    Inspectable[S].fragments.map {
+      case (id, c: Const)        => id -> c
+      case (id, a: Always)       => id -> a
+      case (id, State(fragment)) => id -> Always(() => fragment(s))
+      case (id, u: Undefined)    => id -> u
+    }
+
+  // todo keep this or not?
+//  /**
+//   * A receive handling the inspection requests.
+//   *
+//   * @param state the name given to the actor's state.
+//   * @return a receive handling inspection requests
+//   */
 //  final def inspect(state: String): Receive = inspectS(state)(())(Inspectable.from(fragments))
 
-  /**
-   * Adds the handling of inspections requests to `receive`.
-   *
-   * @param state the name given to the actor's state.
-   * @param receive the receive on which the handling of inspection requests will be added.
-   * @return a receive adding the handling of inspection requests to `receive`.
-   */
+//  /**
+//   * Adds the handling of inspections requests to `receive`.
+//   *
+//   * @param state the name given to the actor's state.
+//   * @param receive the receive on which the handling of inspection requests will be added.
+//   * @return a receive adding the handling of inspection requests to `receive`.
+//   */
 //  final def withInspection(state: String)(receive: Receive): Receive = inspect(state).orElse(receive)
 
   override def aroundPreStart(): Unit =
     ActorInspector(context.system).subscribe(self, groups)
 
   override def aroundReceive(receive: Receive, msg: Any): Unit =
-    super.aroundReceive(bla((), fragments).orElse(receive), msg)
+    super.aroundReceive(handleInspectionRequests("default", (), fragments).orElse(receive), msg)
 }

@@ -25,7 +25,7 @@ object Actors {
   class StatelessActor extends Actor with ImmutableActorInspection {
     override def receive: Receive = mainReceive(StatelessActor.State(0, 1, InnerState(2, 3)))
 
-    def mainReceive(s: StatelessActor.State): Receive = withInspectionS("main")(s) {
+    def mainReceive(s: StatelessActor.State): Receive = withInspection("main")(s) {
       case _ =>
         context.become(
           mainReceive(

@@ -7,19 +7,6 @@ import akka.inspection
 import akka.inspection.ActorInspection._
 import akka.inspection.inspectable.Inspectable
 
-/**
- * Adds the ability to inspect the actor from outside the cluster.
- *
- * This trait is designed for actors whose state is transformed using `context.become(someReceive(state))`.
- * Use [[MutableActorInspection]] for actors whose state is transformed by mutating it.
- *
- * To do this the existent receive methods have to wrapped with `withInspectionS` or `inspectS` has to
- * be composed with the existing ones.
- * These methods rely on instance of the [[Inspectable]] typeclass. An instance can be automatically
- * derived for product type (i.e. case classes and tuples). Use [[akka.inspection.inspectable.DerivedInspectable.gen]]
- * to get the instance. If needed, it can also be manually be implemented.
- *
- */
 trait ActorInspection extends Actor {
   type Group = manager.state.Group
 
@@ -32,31 +19,43 @@ trait ActorInspection extends Actor {
    */
   val groups: Set[Group] = Set.empty
 
-  final def bla[A](a: A, fragments: Map[FragmentId, Fragment[A]]): Receive = {
-    case request: FragmentIdsRequest =>
-      request.replyTo ! request.respondWith("default", fragments.keySet)
-      sender() ! Ack
+  /**
+   * Returns a receive that handles inspection requests.
+   *
+   * @param state the name given to the current state.
+   * @param s the current state
+   * @tparam S the type of the state
+   * @return a receive that handles inspection requests.
+   */
+  final protected def handleInspectionRequests[S](state: String,
+                                                  s: S,
+                                                  fragments: Map[FragmentId, Fragment[S]]): Receive = {
+    implicit val inspectableS: Inspectable[S] = Inspectable.from(fragments) // todo eh
 
-    case request: FragmentsRequest =>
-      implicit val inspectableS = Inspectable.from(fragments)
+    {
+      case request: FragmentIdsRequest =>
+        request.replyTo ! request.respondWith(state, fragments.keySet)
+        sender() ! Ack
 
-      val fragmentIds = request.fragmentIds.foldLeft(Set.empty[FragmentId]) {
-        case (fragmentIds, fragmentId) => fragmentIds ++ fragmentId.expand
-      }
-
-      val response = request.respondWith(
-        "default",
-        fragmentIds.foldLeft(Map.empty[FragmentId, FinalizedFragment]) {
-          case (fragments0, id) =>
-            fragments0 + (id -> inspectableS.fragments.getOrElse(id, Fragment.undefined).run(a))
+      case request: FragmentsRequest =>
+        val fragmentIds = request.fragmentIds.foldLeft(Set.empty[FragmentId]) {
+          case (fragmentIds, fragmentId) => fragmentIds ++ fragmentId.expand
         }
-      )
 
-      request.replyTo ! response
+        val response = request.respondWith(
+          state,
+          fragmentIds.foldLeft(Map.empty[FragmentId, FinalizedFragment]) {
+            case (fragments0, id) =>
+              fragments0 + (id -> fragments.getOrElse(id, Fragment.undefined).run(s))
+          }
+        )
 
-      sender() ! Ack
+        request.replyTo ! response
 
-    case Init => sender() ! Ack
+        sender() ! Ack
+
+      case Init => sender() ! Ack
+    }
   }
 
   override def aroundPreStart(): Unit = {

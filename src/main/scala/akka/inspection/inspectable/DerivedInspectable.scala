@@ -26,10 +26,10 @@ object DerivedInspectable extends LowPriorityDerivedInspectable {
     new DerivedInspectable[A] {
       override val fragments: Map[FragmentId, inspection.Fragment[A]] =
         inspectableRepr.value.value.fragments.map {
-          case (id, Const(fragment))  => id -> Const[A](fragment)
-          case (id, Always(fragment)) => id -> Always[A](fragment)
-          case (id, State(fragment))  => id -> State[A](fragment.compose(gen.to))
-          case (id, Undefined())      => id -> Undefined[A]()
+          case (id, State(fragment)) => id -> State[A](fragment.compose(gen.to))
+          case (id, c: Const)        => id -> c
+          case (id, a: Always)       => id -> a
+          case (id, u: Undefined)    => id -> u
         }
     }
 

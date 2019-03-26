@@ -28,15 +28,4 @@ object Inspectable {
   def from[A](fragments0: Map[FragmentId, Fragment[A]]): Inspectable[A] = new Inspectable[A] {
     override val fragments: Map[FragmentId, inspection.Fragment[A]] = fragments0
   }
-
-  def alwaysRunWith[A: Inspectable](a: => A): Inspectable[Unit] =
-    new Inspectable[Unit] {
-      override val fragments: Map[FragmentId, inspection.Fragment[Unit]] =
-        Inspectable[A].fragments.map {
-          case (id, Const(fragment))  => id -> Const[Unit](fragment)
-          case (id, Always(fragment)) => id -> Always[Unit](fragment)
-          case (id, State(fragment))  => id -> Always[Unit](() => fragment(a))
-          case (id, Undefined())      => id -> Undefined[Unit]()
-        }
-    }
 }

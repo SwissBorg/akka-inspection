@@ -2,6 +2,8 @@ import com.typesafe.sbt.SbtMultiJvm.multiJvmSettings
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 
 name := "akka-inspection"
+organization := "com.swissborg"
+
 
 scalaVersion := "2.12.8"
 sbtVersion := "1.2.8"

@@ -1,7 +1,6 @@
 package akka.inspection
 
 import akka.actor.{ActorRef, ActorSystem, Extension}
-import akka.inspection.ActorInspection.FragmentId
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import akka.inspection.manager.state.Group

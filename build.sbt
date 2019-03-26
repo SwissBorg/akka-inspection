@@ -3,7 +3,7 @@ import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 
 name := "akka-inspection"
 
-ThisBuild / version := "0.0.1"
+ThisBuild / version := "0.1.0"
 ThisBuild / scalaVersion := "2.12.8"
 
 sbtVersion := "1.2.8"
@@ -65,6 +65,12 @@ lazy val commonSettings = Seq(
 enablePlugins(AkkaGrpcPlugin)
 enablePlugins(JavaAgent)
 javaAgents += "org.mortbay.jetty.alpn" % "jetty-alpn-agent" % "2.0.9" % "runtime;test"
+
+sbVersionWithGit
+commonSwissBorgSettings
+sbMavenPublishSetting
+
+scalafmtOnCompile := true
 
 lazy val root = (project in file("."))
   .settings(commonDependencies)

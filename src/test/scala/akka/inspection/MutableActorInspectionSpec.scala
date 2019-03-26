@@ -109,7 +109,7 @@ class MutableActorInspectionSpec
 
       val inspectableRef      = InspectableActorRef(system.actorOf(Props[MutableActor]))
       val expectedFragmentIds = List(FragmentId("yes"), FragmentId("no"))
-      val expectedState       = "main"
+      val expectedState       = "default"
 
       eventually(
         Await.result(

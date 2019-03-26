@@ -3,7 +3,7 @@ package akka.inspection.main
 import akka.actor.{Actor, ActorSystem, Props}
 import akka.inspection.ActorInspection.FragmentId
 import akka.inspection.inspectable.{DerivedInspectable, Inspectable}
-import akka.inspection.{ActorInspection, Fragment, MutableActorInspection}
+import akka.inspection.{ActorInspection, Fragment, ImmutableActorInspection, MutableActorInspection}
 import akka.inspection.manager.state.Group
 import com.typesafe.config.{Config, ConfigFactory}
 
@@ -20,9 +20,7 @@ object Main {
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     private var i: Int = 0
 
-    override def receive: Receive = withInspection("main") {
-      case _ => i += 1
-    }
+    override def receive: Receive = { case _ => i += 1 }
 
     override val fragments: Map[FragmentId, Fragment] = Map(
       FragmentId("yes") -> Fragment.always(i),
@@ -32,7 +30,7 @@ object Main {
     override val groups: Set[Group] = Set(Group("hello"), Group("world"))
   }
 
-  class StatelessActor extends Actor with ActorInspection {
+  class StatelessActor extends Actor with ImmutableActorInspection {
     override def receive: Receive = mainReceive(StatelessActor.State(0))
 
     def mainReceive(s: StatelessActor.State): Receive = withInspectionS("main")(s) {
@@ -54,15 +52,17 @@ object Main {
     final case class State(i: Int)
   }
 
-  class StatelessActor2 extends Actor with ActorInspection {
+  class StatelessActor2 extends Actor with ImmutableActorInspection {
     import StatelessActor2._
 
     override def receive: Receive =
       mainReceive(StatelessActor2.State(0, A(42, List("hello", "world"), B("foo", C(true)))))
 
-    def mainReceive(s: State): Receive = withInspectionS("mainReceive")(s) {
-      case _ => context.become(mainReceive(s.copy(s1 = s.s1 + 1)))
-    }
+    def mainReceive(s: State): Receive = { case _ => context.become(mainReceive(s.copy(s1 = s.s1 + 1))) }
+
+//      withInspectionS("mainReceive")(s) {
+//      case _ => context.become(mainReceive(s.copy(s1 = s.s1 + 1)))
+//    }
 
     def otherReceive(s2: State2): Receive = inspectS("otherReceive")(s2).orElse(???)
 

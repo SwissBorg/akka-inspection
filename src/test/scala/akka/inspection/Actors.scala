@@ -10,7 +10,7 @@ object Actors {
   class MutableActor extends Actor with MutableActorInspection {
     private var i: Int = 0
 
-    override def receive: Receive = withInspection("main") {
+    override def receive: Receive = {
       case _ => i += 1
     }
 
@@ -22,7 +22,7 @@ object Actors {
     override val groups: Set[Group] = Set(Group("hello"), Group("world"))
   }
 
-  class StatelessActor extends Actor with ActorInspection {
+  class StatelessActor extends Actor with ImmutableActorInspection {
     override def receive: Receive = mainReceive(StatelessActor.State(0, 1, InnerState(2, 3)))
 
     def mainReceive(s: StatelessActor.State): Receive = withInspectionS("main")(s) {

@@ -3,9 +3,9 @@ package akka.inspection
 import java.util.UUID
 
 import akka.actor.{Actor, ActorRef}
+import akka.inspection
 import akka.inspection.ActorInspection._
 import akka.inspection.inspectable.Inspectable
-import cats.implicits._
 
 /**
  * Adds the ability to inspect the actor from outside the cluster.
@@ -23,7 +23,8 @@ import cats.implicits._
 trait ActorInspection extends Actor {
   type Group = manager.state.Group
 
-  type FragmentId = ActorInspection.FragmentId
+  type FragmentId = inspection.FragmentId
+  def FragmentId(id: String) = inspection.FragmentId(id)
 
   /**
    * The groups of which the actor is a member.
@@ -123,34 +124,6 @@ private[inspection] object ActorInspection {
                                        originalRequester: ActorRef,
                                        id: Option[UUID])
       extends Event
-
-  /**
-   * Represents the identifier of a subset of an actor's state.
-   *
-   * @see [[Fragment]]
-   */
-  final case class FragmentId(id: String) extends AnyVal {
-
-    /**
-     * Returns the expanded fragment-ids.
-     *
-     * Rules:
-     *   - "*" expands to all the inspectable fragments
-     *   - "a.b.*" expands to all the child fragments of "a.b"l
-     *   - otherwise expands to itself
-     */
-    def expand[S](implicit inspectableS: Inspectable[S]): Set[FragmentId] =
-      if (id.endsWith(".*") && !id.startsWith(".*")) {
-        inspectableS.fragments.keySet.filter {
-          case FragmentId(id) => id.startsWith(this.id.init)
-        }
-      } else if (id === "*") {
-        inspectableS.fragments.keySet
-      } else {
-        inspectableS.fragments.keySet.filter(_.id === id)
-      }
-
-  }
 
   /**
    * A state fragment that has been run.

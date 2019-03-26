@@ -2,7 +2,7 @@ package akka.inspection.inspectable
 
 import akka.inspection
 import akka.inspection.ActorInspection
-import akka.inspection.ActorInspection.FragmentId
+import akka.inspection.FragmentId
 import akka.inspection.Fragment._
 import akka.inspection.util.Render
 import cats.implicits._
@@ -24,7 +24,7 @@ object DerivedInspectable extends LowPriorityDerivedInspectable {
   def gen[A, Repr](implicit gen: LabelledGeneric.Aux[A, Repr],
                    inspectableRepr: Cached[Strict[DerivedInspectable[Repr]]]): DerivedInspectable[A] =
     new DerivedInspectable[A] {
-      override def fragments: Map[ActorInspection.FragmentId, inspection.Fragment[A]] =
+      override def fragments: Map[FragmentId, inspection.Fragment[A]] =
         inspectableRepr.value.value.fragments.map {
           case (id, Const(fragment))  => id -> Const[A](fragment)
           case (id, Always(fragment)) => id -> Always[A](fragment)
@@ -63,7 +63,7 @@ trait LowPriorityDerivedInspectable {
     derivedInspectableT: DerivedInspectable[T]
   ): DerivedInspectable[FieldType[K, H] :: T] =
     new DerivedInspectable[FieldType[K, H] :: T] {
-      override def fragments: Map[ActorInspection.FragmentId, inspection.Fragment[FieldType[K, H] :: T]] =
+      override def fragments: Map[FragmentId, inspection.Fragment[FieldType[K, H] :: T]] =
         derivedInspectableT.fragments.map {
           case (id, fragment) =>
             (id, fragment.contramap[FieldType[K, H] :: T](_.tail))

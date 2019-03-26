@@ -1,7 +1,7 @@
 package akka.inspection.main
 
 import akka.actor.{Actor, ActorSystem, Props}
-import akka.inspection.ActorInspection.FragmentId
+import akka.inspection.FragmentId
 import akka.inspection.inspectable.{DerivedInspectable, Inspectable}
 import akka.inspection.{ActorInspection, Fragment, ImmutableActorInspection, MutableActorInspection}
 import akka.inspection.manager.state.Group

@@ -4,7 +4,8 @@ import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.inspection.ActorInspection
-import akka.inspection.ActorInspection.{FinalizedFragment, FragmentId}
+import akka.inspection.FragmentId
+import akka.inspection.ActorInspection.FinalizedFragment
 import akka.inspection.manager.BroadcastActor._
 import akka.inspection.manager.state._
 import akka.stream.{ActorMaterializer, Materializer, QueueOfferResult}

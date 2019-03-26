@@ -1,8 +1,7 @@
 package akka.inspection.inspectable
 
 import akka.inspection
-import akka.inspection.ActorInspection.FragmentId
-import akka.inspection.Fragment
+import akka.inspection.{Fragment, FragmentId}
 
 /**
  * Typeclass for `A`s that can be inspected.

@@ -8,7 +8,7 @@ import cats.Contravariant
  *
  * @tparam S the type of state.
  */
-sealed abstract private[inspection] class Fragment[-S] extends Product with Serializable {
+sealed abstract class Fragment[-S] extends Product with Serializable {
 
   /**
    * Runs the [[Fragment]] to build a [[FinalizedFragment]].
@@ -16,7 +16,7 @@ sealed abstract private[inspection] class Fragment[-S] extends Product with Seri
   def run(s: S): FinalizedFragment
 }
 
-private[inspection] object Fragment {
+object Fragment {
 
   /**
    * Describes a fragment whose value doesn't change.

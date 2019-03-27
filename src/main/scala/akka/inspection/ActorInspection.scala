@@ -31,32 +31,28 @@ trait ActorInspection extends Actor {
   final protected def handleInspectionRequests[S](state: String,
                                                   s: S,
                                                   fragments: Map[FragmentId, Fragment[S]]): Receive = {
-    implicit val inspectableS: Inspectable[S] = Inspectable.from(fragments) // todo eh
+    case request: FragmentIdsRequest =>
+      request.replyTo ! request.respondWith(state, fragments.keySet)
+      sender() ! Ack
 
-    {
-      case request: FragmentIdsRequest =>
-        request.replyTo ! request.respondWith(state, fragments.keySet)
-        sender() ! Ack
+    case request: FragmentsRequest =>
+      val fragmentIds = request.fragmentIds.foldLeft(Set.empty[FragmentId]) {
+        case (fragmentIds, fragmentId) => fragmentIds ++ fragmentId.expand(fragments.keySet)
+      }
 
-      case request: FragmentsRequest =>
-        val fragmentIds = request.fragmentIds.foldLeft(Set.empty[FragmentId]) {
-          case (fragmentIds, fragmentId) => fragmentIds ++ fragmentId.expand
+      val response = request.respondWith(
+        state,
+        fragmentIds.foldLeft(Map.empty[FragmentId, FinalizedFragment]) {
+          case (fragments0, id) =>
+            fragments0 + (id -> fragments.getOrElse(id, Fragment.undefined).run(s))
         }
+      )
 
-        val response = request.respondWith(
-          state,
-          fragmentIds.foldLeft(Map.empty[FragmentId, FinalizedFragment]) {
-            case (fragments0, id) =>
-              fragments0 + (id -> fragments.getOrElse(id, Fragment.undefined).run(s))
-          }
-        )
+      request.replyTo ! response
 
-        request.replyTo ! response
+      sender() ! Ack
 
-        sender() ! Ack
-
-      case Init => sender() ! Ack
-    }
+    case Init => sender() ! Ack
   }
 
   override def aroundPreStart(): Unit = {

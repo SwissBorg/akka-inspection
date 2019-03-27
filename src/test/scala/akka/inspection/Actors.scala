@@ -1,7 +1,6 @@
 package akka.inspection
 
 import akka.actor.Actor
-import akka.inspection.FragmentId
 import akka.inspection.Actors.StatelessActor.InnerState
 import akka.inspection.inspectable.Inspectable
 import akka.inspection.inspectable.derivation.DerivedInspectable

@@ -1,6 +1,5 @@
 package akka.inspection
 
-import akka.inspection.inspectable.Inspectable
 import cats.implicits._
 
 /**
@@ -18,14 +17,14 @@ final case class FragmentId(id: String) extends AnyVal {
    *   - "a.b.*" expands to all the child fragments of "a.b"l
    *   - otherwise expands to itself
    */
-  def expand[S](implicit inspectableS: Inspectable[S]): Set[FragmentId] =
-    if (id.endsWith(".*") && !id.startsWith(".*")) {
-      inspectableS.fragments.keySet.filter {
+  def expand(expandIn: Set[FragmentId]): Set[FragmentId] =
+    if (id === "*") {
+      expandIn
+    } else if (id.endsWith(".*") && !id.startsWith(".*")) {
+      expandIn.filter {
         case FragmentId(id) => id.startsWith(this.id.init)
       }
-    } else if (id === "*") {
-      inspectableS.fragments.keySet
     } else {
-      inspectableS.fragments.keySet.filter(_.id === id)
+      expandIn.filter(_.id === id)
     }
 }

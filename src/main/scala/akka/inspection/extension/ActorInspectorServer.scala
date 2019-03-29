@@ -8,6 +8,7 @@ import akka.inspection.grpc
 import akka.stream.{ActorMaterializer, Materializer}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /**
  * Server exposing the actor inspection service to the outside of the cluster.
@@ -34,8 +35,9 @@ private[extension] class ActorInspectorServer(inspectionService: ActorInspectorI
                                                                       connectionContext =
                                                                         HttpConnectionContext(http2 = Always))
 
-    bound.foreach { binding =>
-      println(s"gRPC server bound to: ${binding.localAddress}")
+    bound.onComplete {
+      case Failure(exception) => println(s"$exception")
+      case Success(binding)   => println(s"gRPC server bound to: ${binding.localAddress}")
     }
 
     bound

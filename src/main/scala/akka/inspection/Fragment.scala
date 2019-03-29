@@ -69,7 +69,7 @@ object Fragment {
   /**
    * Build a [[Fragment]] that hides sensitive data.
    */
-  def sensitive[S]: Fragment[S] = fix("[SENSITIVE]")
+  def sensitive: Fragment[Any] = fix("[SENSITIVE]")
 
   /**
    * [[Fragment]] fallback.

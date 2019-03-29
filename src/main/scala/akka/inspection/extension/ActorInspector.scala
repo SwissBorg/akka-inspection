@@ -3,7 +3,6 @@ package akka.inspection.extension
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
 import akka.inspection.manager.ActorInspectorManager
 import akka.inspection.{ActorInspection, MutableActorInspection}
-import com.typesafe.config.ConfigFactory
 
 /**
  * Extension adding the possibility to inspect actors from outside the cluster.
@@ -16,7 +15,7 @@ object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdPr
 
     val impl: ActorInspectorImpl = new ActorInspectorImpl(system, actorInspectorManager)
 
-    val conf = ConfigFactory.load()
+    val conf = system.settings.config
 
     val _ = if (conf.getBoolean("akka.inspection.enable-server")) {
       new ActorInspectorServer(impl,

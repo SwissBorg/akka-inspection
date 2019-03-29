@@ -1,7 +1,6 @@
 package akka.inspection
 
 import akka.actor.{Actor, ActorLogging}
-import akka.inspection
 import akka.inspection.Fragment.{Always, Const, State, Undefined}
 import akka.inspection.extension.ActorInspector
 import akka.inspection.inspectable.Inspectable

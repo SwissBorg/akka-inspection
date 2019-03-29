@@ -6,6 +6,7 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.http.scaladsl.{Http, HttpConnectionContext}
 import akka.inspection.grpc
 import akka.stream.{ActorMaterializer, Materializer}
+import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -21,7 +22,8 @@ import scala.util.{Failure, Success}
 private[extension] class ActorInspectorServer(inspectionService: ActorInspectorImpl,
                                               system: ActorSystem,
                                               interface: String,
-                                              port: Int) {
+                                              port: Int)
+    extends StrictLogging {
   implicit val sys: ActorSystem     = system
   implicit val mat: Materializer    = ActorMaterializer()
   implicit val ec: ExecutionContext = sys.dispatcher
@@ -36,8 +38,8 @@ private[extension] class ActorInspectorServer(inspectionService: ActorInspectorI
                                                                         HttpConnectionContext(http2 = Always))
 
     bound.onComplete {
-      case Failure(exception) => println(s"$exception")
-      case Success(binding)   => println(s"gRPC server bound to: ${binding.localAddress}")
+      case Failure(exception) => logger.error("Failed to start the inspector-server!", exception)
+      case Success(binding)   => logger.info(s"gRPC server bound to: ${binding.localAddress}")
     }
 
     bound

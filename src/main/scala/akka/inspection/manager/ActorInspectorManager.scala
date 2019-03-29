@@ -118,7 +118,6 @@ class ActorInspectorManager extends Actor with ActorLogging {
         case Success(None) => () // no response to send
 
         case Failure(t) =>
-          println(s"aaac $t")
           log.error(t.toString)
       }
   }
@@ -150,24 +149,19 @@ class ActorInspectorManager extends Actor with ActorLogging {
           case Right(m) =>
             OptionT[Future, ResponseEvent](m.map {
               case QueueOfferResult.Enqueued =>
-                println(s"enqueued")
                 None // the inspectable actor will receive the request and should respond back
+
               case QueueOfferResult.Dropped =>
-                println(s"dropped")
-
                 Some(FragmentsResponse(Either.left(UnreachableInspectableActor(actor))))
+
               case _: QueueOfferResult.Failure =>
-                println(s"failure")
-
                 Some(FragmentsResponse(Either.left(UnreachableInspectableActor(actor))))
-              case QueueOfferResult.QueueClosed =>
-                println(s"queueclosed")
 
+              case QueueOfferResult.QueueClosed =>
                 Some(FragmentsResponse(Either.left(UnreachableInspectableActor(actor))))
             })
 
           case Left(err) =>
-            println(s"aaab $err")
             OptionT.pure(FragmentsResponse(Either.left(err)))
         }
 

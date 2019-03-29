@@ -1,7 +1,5 @@
 package akka.inspection
 
-import shapeless.labelled.FieldType
-
 /**
  * Typeclass for rendering elements of type `T`.
  *

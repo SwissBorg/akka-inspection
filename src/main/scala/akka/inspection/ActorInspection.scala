@@ -2,13 +2,12 @@ package akka.inspection
 
 import java.util.UUID
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.inspection
 import akka.inspection.ActorInspection._
 import akka.inspection.extension.ActorInspector
-import akka.inspection.inspectable.Inspectable
 
-trait ActorInspection extends Actor {
+trait ActorInspection extends Actor with ActorLogging {
   type Group = manager.state.Group
 
   type FragmentId = inspection.FragmentId
@@ -57,6 +56,7 @@ trait ActorInspection extends Actor {
 
   override def aroundPreStart(): Unit = {
     super.aroundPreStart()
+    log.warning("DODODO")
     ActorInspector(context.system).subscribe(self, groups)
   }
 

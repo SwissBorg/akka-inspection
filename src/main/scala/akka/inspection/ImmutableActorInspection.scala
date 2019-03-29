@@ -2,7 +2,6 @@ package akka.inspection
 
 import akka.actor.{Actor, ActorLogging}
 import akka.inspection.inspectable.Inspectable
-import akka.inspection.inspectable.derivation.DerivedInspectable
 
 /**
  * Adds the ability to inspect the actor from outside the cluster.
@@ -13,7 +12,7 @@ import akka.inspection.inspectable.derivation.DerivedInspectable
  * To do this the existent receive methods have to wrapped with `withInspectionS` or `inspectS` has to
  * be composed with the existing ones.
  * These methods rely on instance of the [[Inspectable]] typeclass. An instance can be automatically
- * derived for product type (i.e. case classes and tuples). Use [[DerivedInspectable.gen]]
+ * derived for product type (i.e. case classes and tuples). Use `DerivedInspectable.gen`
  * to get the instance. If needed, it can also be manually be implemented.
  *
  */

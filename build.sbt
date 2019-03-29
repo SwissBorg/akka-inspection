@@ -4,7 +4,6 @@ import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 name := "akka-inspection"
 organization := "com.swissborg"
 
-
 scalaVersion := "2.12.8"
 sbtVersion := "1.2.8"
 
@@ -29,6 +28,7 @@ lazy val commonDependencies = Seq(
   libraryDependencies += "com.chuusai"                %% "shapeless"                 % shapelessVersion,
   libraryDependencies += "com.github.julien-truffaut" %% "monocle-core"              % monocleVersion,
   libraryDependencies += "com.github.scopt"           %% "scopt"                     % scoptVersion,
+  libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging"             % "3.9.2",
   libraryDependencies += "com.github.julien-truffaut" %% "monocle-law"               % monocleVersion % Test,
   libraryDependencies += "com.typesafe.akka"          %% "akka-testkit"              % akkaVersion % Test,
   libraryDependencies += "com.typesafe.akka"          %% "akka-multi-node-testkit"   % akkaVersion % Test,
@@ -49,11 +49,11 @@ lazy val commonScalacOptions = Seq(
   "-unchecked",
   "-Ywarn-dead-code",
   "-Ywarn-unused",
+  "-Ywarn-unused:imports",
   "-Ywarn-numeric-widen",
   "-Ywarn-value-discard",
   "-Xfuture",
-  "-Yno-adapted-args",
-  "-Xfatal-warnings"
+  "-Yno-adapted-args"
 )
 
 lazy val commonSettings = Seq(
@@ -74,6 +74,7 @@ scalafmtOnCompile := true
 
 lazy val root = (project in file("."))
   .settings(commonDependencies)
+  .settings(commonSettings)
   .enablePlugins(MultiJvmPlugin)
   .enablePlugins(AkkaGrpcPlugin)
   .enablePlugins(JavaAgent)

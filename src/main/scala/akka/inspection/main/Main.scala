@@ -69,7 +69,7 @@ object Main {
 //      case _ => context.become(mainReceive(s.copy(s1 = s.s1 + 1)))
 //    }
 
-    def otherReceive(s2: State2): Receive = inspect("otherReceive")(s2)//.orElse(???)
+    def otherReceive(s2: State2): Receive = inspect("otherReceive")(s2) //.orElse(???)
 
     override val groups: Set[Group] = Set(Group("hello"), Group("world"))
   }

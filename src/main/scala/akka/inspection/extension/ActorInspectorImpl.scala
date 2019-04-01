@@ -15,7 +15,7 @@ private[extension] class ActorInspectorImpl(system: ActorSystem, actorInspectorM
     extends Extension
     with grpc.ActorInspectionService {
 
-  implicit val timer: Timeout       = 10.seconds // TODO BEEEHHHH
+  implicit val timer: Timeout       = 10.seconds
   implicit val ec: ExecutionContext = system.getDispatcher
 
   def subscribe(ref: ActorRef, groups: Set[Group]): Unit =

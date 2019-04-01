@@ -7,7 +7,7 @@ import akka.inspection.inspectable.derivation.DerivedInspectable
 import akka.inspection.manager.state.Group
 
 object Actors {
-  class MutableActor extends Actor with MutableActorInspection {
+  class MutableActor extends Actor with MutableInspection {
     private var i: Int = 0
 
     override def receive: Receive = {
@@ -22,7 +22,7 @@ object Actors {
     override val groups: Set[Group] = Set(Group("hello"), Group("world"))
   }
 
-  class StatelessActor extends Actor with ImmutableActorInspection {
+  class StatelessActor extends Actor with ImmutableInspection {
     override def receive: Receive = mainReceive(StatelessActor.State(0, 1, InnerState(2, 3)))
 
     def mainReceive(s: StatelessActor.State): Receive = withInspection("main")(s) {

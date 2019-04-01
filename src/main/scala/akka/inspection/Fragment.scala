@@ -35,8 +35,8 @@ object Fragment {
   /**
    * Describes a fragment dependent on [[S]].
    */
-  final case class State[S](fragment: S => String) extends Fragment[S] {
-    def run(s: S): FinalizedFragment = RenderedFragment(fragment(s))
+  final case class Getter[S](get: S => String) extends Fragment[S] {
+    def run(s: S): FinalizedFragment = RenderedFragment(get(s))
   }
 
   /**
@@ -59,17 +59,12 @@ object Fragment {
   /**
    * Build a [[Fragment]] from the state [[S]].
    */
-  def state[S, T: Render](t: S => T): Fragment[S] = State(t.andThen(Render[T].render))
-
-  /**
-   * Build a [[Fragment]] always returning `s`.
-   */
-  def fix(s: String): Fragment[Any] = Const(s)
+  def getter[S, T: Render](get: S => T): Fragment[S] = Getter(get.andThen(Render[T].render))
 
   /**
    * Build a [[Fragment]] that hides sensitive data.
    */
-  def sensitive: Fragment[Any] = fix("[SENSITIVE]")
+  def sensitive: Fragment[Any] = Const("[SENSITIVE]")
 
   /**
    * [[Fragment]] fallback.
@@ -81,16 +76,16 @@ object Fragment {
    * does not have to annotate the state's type when building state fragments.
    */
   final class FragmentPartiallyApplied[S](val dummy: Boolean = true) extends AnyVal {
-    def apply[T: Render](t: T): Fragment[Any]     = Fragment(t)
-    def always[T: Render](t: => T): Fragment[Any] = Fragment.always(t)
-    def state[T: Render](t: S => T): Fragment[S]  = Fragment.state(t)
-    def sensitive: Fragment[Any]                  = Fragment.sensitive
-    def undefined: Fragment[Any]                  = Fragment.undefined
+    def apply[T: Render](t: T): Fragment[Any]      = Fragment(t)
+    def always[T: Render](t: => T): Fragment[Any]  = Fragment.always(t)
+    def getter[T: Render](get: S => T): Fragment[S] = Fragment.getter(get)
+    def sensitive: Fragment[Any]                   = Fragment.sensitive
+    def undefined: Fragment[Any]                   = Fragment.undefined
   }
 
   implicit val fragmentContravariant: Contravariant[Fragment] = new Contravariant[Fragment] {
     override def contramap[A, B](fa: Fragment[A])(f: B => A): Fragment[B] = fa match {
-      case State(fragment) => State(fragment.compose(f))
+      case Getter(fragment) => Getter(fragment.compose(f))
       case c: Const        => c
       case a: Always       => a
       case u: Undefined    => u

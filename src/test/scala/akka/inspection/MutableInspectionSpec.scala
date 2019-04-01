@@ -24,8 +24,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
-class MutableActorInspectionSpec
-    extends TestKit(ActorSystem("MutableActorInspectionSpec", MutableActorInspectionSpec.testConfig))
+class MutableInspectionSpec
+    extends TestKit(ActorSystem("MutableActorInspectionSpec", MutableInspectionSpec.testConfig))
     with ImplicitSender
     with WordSpecLike
     with Matchers
@@ -131,7 +131,7 @@ class MutableActorInspectionSpec
   override def afterAll: Unit = TestKit.shutdownActorSystem(system)
 }
 
-object MutableActorInspectionSpec {
+object MutableInspectionSpec {
   val testConfig: Config = ConfigFactory
     .parseString {
       """

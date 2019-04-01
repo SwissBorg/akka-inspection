@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorSystem, Props}
 import akka.inspection.inspectable.Inspectable
 import akka.inspection.inspectable.derivation.DerivedInspectable
 import akka.inspection.manager.state.Group
-import akka.inspection.{Fragment, ImmutableActorInspection, MutableActorInspection}
+import akka.inspection.{Fragment, ImmutableInspection, MutableInspection}
 import com.typesafe.config.{Config, ConfigFactory}
 
 object Main {
@@ -16,7 +16,7 @@ object Main {
     val c = system.actorOf(Props[StatelessActor2], "stateless-actor-2")
   }
 
-  class MutableActor extends Actor with MutableActorInspection {
+  class MutableActor extends Actor with MutableInspection {
     import MutableActor._
 
     private var i: State = State(1)
@@ -35,7 +35,7 @@ object Main {
     }
   }
 
-  class StatelessActor extends Actor with ImmutableActorInspection {
+  class StatelessActor extends Actor with ImmutableInspection {
     override def receive: Receive = mainReceive(StatelessActor.State(0))
 
     def mainReceive(s: StatelessActor.State): Receive = withInspection("main")(s) {
@@ -46,8 +46,8 @@ object Main {
 
     implicit val stateInspectable: Inspectable[StatelessActor.State] = Inspectable.from(
       Map(
-        FragmentId("yes") -> Fragment.state(_.i),
-        FragmentId("no")  -> Fragment.state(_.i + 1),
+        FragmentId("yes") -> Fragment.getter(_.i),
+        FragmentId("no")  -> Fragment.getter(_.i + 1),
         FragmentId("bla") -> Fragment.always(1)
       )
     )
@@ -57,7 +57,7 @@ object Main {
     final case class State(i: Int)
   }
 
-  class StatelessActor2 extends Actor with ImmutableActorInspection {
+  class StatelessActor2 extends Actor with ImmutableInspection {
     import StatelessActor2._
 
     override def receive: Receive =

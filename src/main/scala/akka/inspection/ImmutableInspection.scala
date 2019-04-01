@@ -7,7 +7,7 @@ import akka.inspection.inspectable.Inspectable
  * Adds the ability to inspect the actor from outside the cluster.
  *
  * This trait is designed for actors whose state is transformed using `context.become(someReceive(state))`.
- * Use [[MutableActorInspection]] for actors whose state is transformed by mutating it.
+ * Use [[MutableInspection]] for actors whose state is transformed by mutating it.
  *
  * To do this the existent receive methods have to wrapped with `withInspectionS` or `inspectS` has to
  * be composed with the existing ones.
@@ -16,7 +16,7 @@ import akka.inspection.inspectable.Inspectable
  * to get the instance. If needed, it can also be manually be implemented.
  *
  */
-trait ImmutableActorInspection extends ActorInspection with ActorLogging { this: Actor =>
+trait ImmutableInspection extends ActorInspection with ActorLogging { this: Actor =>
 
   /**
    * Handles inspection requests.

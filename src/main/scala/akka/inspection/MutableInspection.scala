@@ -1,7 +1,7 @@
 package akka.inspection
 
 import akka.actor.{Actor, ActorLogging}
-import akka.inspection.Fragment.{Always, Const, State, Undefined}
+import akka.inspection.Fragment.{Always, Const, Getter, Undefined}
 import akka.inspection.extension.ActorInspector
 import akka.inspection.inspectable.Inspectable
 
@@ -14,7 +14,7 @@ import akka.inspection.inspectable.Inspectable
  * To do this the existent receive methods have to wrapped with `withInspection` or `inspect` has to
  * be composed with the existing ones.
  */
-trait MutableActorInspection extends ActorInspection with ActorLogging { this: Actor =>
+trait MutableInspection extends ActorInspection with ActorLogging { this: Actor =>
   type Fragment = akka.inspection.Fragment[Unit]
   val Fragment = new akka.inspection.Fragment.FragmentPartiallyApplied[Unit]()
 
@@ -40,7 +40,7 @@ trait MutableActorInspection extends ActorInspection with ActorLogging { this: A
     Inspectable[S].fragments.map {
       case (id, c: Const)        => id -> c
       case (id, a: Always)       => id -> a
-      case (id, State(fragment)) => id -> Always(() => fragment(s))
+      case (id, Getter(fragment)) => id -> Always(() => fragment(s))
       case (id, u: Undefined)    => id -> u
     }
 

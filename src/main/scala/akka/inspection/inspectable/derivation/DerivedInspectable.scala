@@ -25,7 +25,7 @@ object DerivedInspectable extends LowPriorityDerivedInspectable1 {
     new DerivedInspectable[A] {
       override val fragments: Map[FragmentId, inspection.Fragment[A]] =
         inspectableRepr.value.value.fragments.map {
-          case (id, State(fragment)) => id -> State[A](fragment.compose(gen.to))
+          case (id, Getter(fragment)) => id -> Getter[A](fragment.compose(gen.to))
           case (id, c: Const)        => id -> c
           case (id, a: Always)       => id -> a
           case (id, u: Undefined)    => id -> u
@@ -89,6 +89,6 @@ trait LowPriorityDerivedInspectable0 {
             (id, fragment.contramap[FieldType[K, H] :: T](_.tail))
         } + (FragmentId(
           witness.value.name
-        ) -> Fragment.state(_.head)(renderH.value))
+        ) -> Fragment.getter(_.head)(renderH.value))
     }
 }

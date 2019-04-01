@@ -11,7 +11,7 @@ mutate their state by recursively calling `context.become(...)`.
 ## Mutable actor inspection
 
 To add the ability to inspect a "mutable" actor the trait `MutableInspection`
-has to be mixed into an `Actor`. 
+has to be mixed into the `Actor`. 
 
 This requires to implement `fragments` which can be seen as a set of 
 getters on the actors state. See the section *FragmentId and Fragment*
@@ -30,8 +30,8 @@ import akka.inspection.MutableInspection
 import akka.inspection.inspectable.Inspectable
 import akka.inspection.inspectable.derivation.DerivedInspectable
 
-class MyActor extends Actor with MutableInspection {
-  import MyActor._
+class MyMutableActor extends Actor with MutableInspection {
+  import MyMutableActor._
   
   var s: State = ???
   
@@ -40,7 +40,7 @@ class MyActor extends Actor with MutableInspection {
   override val fragments: Map[FragmentId, Fragment] = fragmentsFrom(s)
 }
 
-object MyActor {
+object MyMutableActor {
   case class State(/*...*/)
   object State {
     implicit val stateInspectable: Inspectable[State] = DerivedInspectable.gen
@@ -48,6 +48,49 @@ object MyActor {
 }
 ```
 
+## Immutable actor inspection
+
+To add the ability to inspect a "immutable" actor the trait `ImmutableInspection`
+has to be mixed into the `Actor`. 
+ 
+The trait exposes two methods: `inspect` and `withInspection`. These methods
+are used to enhance the existing `Receive` methods to be able to inspect the 
+state. They do the same thing and choosing one over another is a matter of taste.
+
+`inspect` can be used in an `... orElse ...` pattern whereas `withInspection` wraps around
+an existing `Receive`. 
+
+```scala
+import akka.actor.Actor
+import akka.inspection.ImmutableInspection
+import akka.inspection.inspectable.Inspectable
+import akka.inspection.inspectable.derivation.DerivedInspectable
+
+class MyImmutableActor extends Actor with ImmutableInspection {
+  import MyImmutableActor._
+
+  override def receive: Receive = ???
+  
+  def statefulReceive(s: State): Receive = withInspection("a-name")(s) {
+   /* original receive implementation */
+   case _ => ()
+  }
+  
+  def statefulReceive2(s: State): Receive = 
+    inspect("other-name")(s) orElse ??? // receive
+}
+
+object MyImmutableActor {
+  case class State(/*...*/)
+  object State {
+    implicit val stateInspectable: Inspectable[State] = DerivedInspectable.gen
+  }
+}
+```
+
+The argument `state` in `inspect` or `withInspection` can be used to give 
+a name to the current state in which the actor is. This will be visible
+when inspecting the actor.
 
 ## FragmentId and Fragment
 

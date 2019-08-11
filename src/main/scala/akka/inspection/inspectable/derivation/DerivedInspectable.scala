@@ -12,7 +12,7 @@ import shapeless.{::, Cached, HList, HNil, LabelledGeneric, Lazy, Strict, Witnes
 /**
  * Instance of `Inspectable` that has been derived.
  */
-sealed trait DerivedInspectable[A] extends Inspectable[A]
+sealed abstract class DerivedInspectable[A] extends Inspectable[A]
 
 object DerivedInspectable extends LowPriorityDerivedInspectable1 {
 
@@ -20,15 +20,15 @@ object DerivedInspectable extends LowPriorityDerivedInspectable1 {
    * Derive an `Inspectable[A]` that has a fragment per leaf of `A` and whose
    * name are their absolute path separated by dots.
    */
-  def gen[A, Repr](implicit gen: LabelledGeneric.Aux[A, Repr],
-                   inspectableRepr: Cached[Strict[DerivedInspectable[Repr]]]): DerivedInspectable[A] =
+  implicit def gen[A, Repr](implicit gen: LabelledGeneric.Aux[A, Repr],
+                            inspectableRepr: Cached[Strict[DerivedInspectable[Repr]]]): DerivedInspectable[A] =
     new DerivedInspectable[A] {
       override val fragments: Map[FragmentId, inspection.Fragment[A]] =
         inspectableRepr.value.value.fragments.map {
           case (id, Getter(fragment)) => id -> Getter[A](fragment.compose(gen.to))
-          case (id, c: Const)        => id -> c
-          case (id, a: Always)       => id -> a
-          case (id, u: Undefined)    => id -> u
+          case (id, c: Const)         => id -> c
+          case (id, a: Always)        => id -> a
+          case (id, u: Undefined)     => id -> u
         }
     }
 

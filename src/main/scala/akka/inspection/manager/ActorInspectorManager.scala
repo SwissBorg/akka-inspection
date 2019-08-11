@@ -3,9 +3,8 @@ package akka.inspection.manager
 import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.inspection.ActorInspection
-import akka.inspection.FragmentId
 import akka.inspection.ActorInspection.FinalizedFragment
+import akka.inspection.{ActorInspection, FragmentId}
 import akka.inspection.manager.BroadcastActor._
 import akka.inspection.manager.state._
 import akka.stream.{ActorMaterializer, Materializer, QueueOfferResult}
@@ -83,8 +82,12 @@ class ActorInspectorManager extends Actor with ActorLogging {
    * Handles the subscription events.
    */
   private def subscriptionEvents(s: State): Receive = {
-    case Subscribe(ref, groups0) => context.become(receiveS(s.subscribe(ref, groups0)))
-    case Unsubscribe(ref)        => context.become(receiveS(s.unsubscribe(ref)))
+    case Subscribe(ref, groups0) =>
+      context.watchWith(ref.ref, Unsubscribe(ref))
+      context.become(receiveS(s.subscribe(ref, groups0)))
+
+    case Unsubscribe(ref) =>
+      context.become(receiveS(s.unsubscribe(ref)))
   }
 
   /**
@@ -128,10 +131,10 @@ class ActorInspectorManager extends Actor with ActorLogging {
    * is not available in a single node and thus will have to be broadcast to managers on the
    * other nodes.
    *
-   * @param request the request to respond to.
-   * @param s the state of the actor.
+   * @param request           the request to respond to.
+   * @param s                 the state of the actor.
    * @param originalRequester who to reply to in case of a `ActorInspection.FragmentRequest`.
-   * @param id the id of the request if available.
+   * @param id                the id of the request if available.
    * @return a potential response.
    */
   private def _responseTo(request: RequestEvent,

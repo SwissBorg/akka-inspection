@@ -1,5 +1,6 @@
 package akka.inspection.manager.state
 
+import akka.actor.ActorRef
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import cats.implicits._

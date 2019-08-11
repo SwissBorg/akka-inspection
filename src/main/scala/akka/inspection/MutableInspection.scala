@@ -38,10 +38,10 @@ trait MutableInspection extends ActorInspection with ActorLogging { this: Actor 
    */
   def fragmentsFrom[S: Inspectable](s: => S): Map[FragmentId, Fragment] =
     Inspectable[S].fragments.map {
-      case (id, c: Const)        => id -> c
-      case (id, a: Always)       => id -> a
+      case (id, c: Const)         => id -> c
+      case (id, a: Always)        => id -> a
       case (id, Getter(fragment)) => id -> Always(() => fragment(s))
-      case (id, u: Undefined)    => id -> u
+      case (id, u: Undefined)     => id -> u
     }
 
   // todo keep this or not?

@@ -76,19 +76,19 @@ object Fragment {
    * does not have to annotate the state's type when building state fragments.
    */
   final class FragmentPartiallyApplied[S](val dummy: Boolean = true) extends AnyVal {
-    def apply[T: Render](t: T): Fragment[Any]      = Fragment(t)
-    def always[T: Render](t: => T): Fragment[Any]  = Fragment.always(t)
+    def apply[T: Render](t: T): Fragment[Any]       = Fragment(t)
+    def always[T: Render](t: => T): Fragment[Any]   = Fragment.always(t)
     def getter[T: Render](get: S => T): Fragment[S] = Fragment.getter(get)
-    def sensitive: Fragment[Any]                   = Fragment.sensitive
-    def undefined: Fragment[Any]                   = Fragment.undefined
+    def sensitive: Fragment[Any]                    = Fragment.sensitive
+    def undefined: Fragment[Any]                    = Fragment.undefined
   }
 
   implicit val fragmentContravariant: Contravariant[Fragment] = new Contravariant[Fragment] {
     override def contramap[A, B](fa: Fragment[A])(f: B => A): Fragment[B] = fa match {
       case Getter(fragment) => Getter(fragment.compose(f))
-      case c: Const        => c
-      case a: Always       => a
-      case u: Undefined    => u
+      case c: Const         => c
+      case a: Always        => a
+      case u: Undefined     => u
     }
   }
 }

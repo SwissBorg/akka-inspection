@@ -9,10 +9,10 @@ import akka.inspection.inspectable.Inspectable
  * This trait is designed for actors whose state is transformed using `context.become(someReceive(state))`.
  * Use [[MutableInspection]] for actors whose state is transformed by mutating it.
  *
- * To do this the existent receive methods have to wrapped with `withInspectionS` or `inspectS` has to
+ * To do this the existent receive methods have to wrapped with `withInspection` or `inspect` has to
  * be composed with the existing ones.
  * These methods rely on instance of the [[Inspectable]] typeclass. An instance can be automatically
- * derived for product type (i.e. case classes and tuples). Use `DerivedInspectable.gen`
+ * derived for product type (i.e. case classes and tuples). Use `deriveInspectable`
  * to get the instance. If needed, it can also be manually be implemented.
  *
  */

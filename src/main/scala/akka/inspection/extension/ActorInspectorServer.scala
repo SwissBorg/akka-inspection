@@ -1,9 +1,8 @@
 package akka.inspection.extension
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.UseHttp2.Always
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import akka.http.scaladsl.{Http, HttpConnectionContext}
+import akka.http.scaladsl.{Http, Http2, HttpConnectionContext}
 import akka.inspection.grpc
 import akka.stream.{ActorMaterializer, Materializer}
 import com.typesafe.scalalogging.StrictLogging
@@ -31,11 +30,8 @@ private[extension] class ActorInspectorServer(inspectionService: ActorInspectorI
   def run(): Future[Http.ServerBinding] = {
     val service: HttpRequest => Future[HttpResponse] = grpc.ActorInspectionServiceHandler(inspectionService)
 
-    val bound: Future[Http.ServerBinding] = Http().bindAndHandleAsync(service,
-                                                                      interface = interface,
-                                                                      port = port,
-                                                                      connectionContext =
-                                                                        HttpConnectionContext(http2 = Always))
+    val bound: Future[Http.ServerBinding] =
+      Http2().bindAndHandleAsync(service, interface = interface, port = port, HttpConnectionContext())
 
     bound.onComplete {
       case Failure(exception) => logger.error("Failed to start the inspector-server!", exception)

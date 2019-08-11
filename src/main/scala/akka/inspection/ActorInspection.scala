@@ -56,7 +56,6 @@ trait ActorInspection extends Actor with ActorLogging {
 
   override def aroundPreStart(): Unit = {
     super.aroundPreStart()
-    log.warning("DODODO")
     ActorInspector(context.system).subscribe(self, groups)
   }
 

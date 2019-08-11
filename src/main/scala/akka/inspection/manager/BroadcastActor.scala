@@ -21,8 +21,8 @@ class BroadcastActor(manager: ActorRef) extends Actor with Stash with ActorLoggi
   private val ManagersKey: ORSetKey[ActorRef] = ORSetKey[ActorRef]("broadcast")
   implicit val node: SelfUniqueAddress        = DistributedData(context.system).selfUniqueAddress
   replicator ! DDataSubscribe(ManagersKey, self)
-  replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteAll(10 seconds))(_ :+ manager)
-  replicator ! Get(ManagersKey, ReadAll(10 seconds))
+  replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteAll(10.seconds))(_ :+ manager)
+  replicator ! Get(ManagersKey, ReadAll(10.seconds))
 
   override def receive: Receive = awaitingManagers
 
@@ -91,7 +91,7 @@ class BroadcastActor(manager: ActorRef) extends Actor with Stash with ActorLoggi
 
     case Terminated(terminatedManager) =>
       // let other broadcasters know that a manager has been terminated
-      replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteAll(10 seconds))(_.remove(terminatedManager))
+      replicator ! Update(ManagersKey, ORSet.empty[ActorRef], WriteAll(10.seconds))(_.remove(terminatedManager))
       context.become(receiveS(managers - terminatedManager, update(workList, terminatedManager)))
   }
 

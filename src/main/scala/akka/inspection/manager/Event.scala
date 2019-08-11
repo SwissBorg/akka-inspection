@@ -1,6 +1,7 @@
 package akka.inspection.manager
 
-import akka.inspection.ActorInspection.{FinalizedFragment, FragmentId, RenderedFragment, UndefinedFragment}
+import akka.inspection.ActorInspection.{FinalizedFragment, RenderedFragment, UndefinedFragment}
+import akka.inspection.FragmentId
 import akka.inspection.grpc
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager.state.Group

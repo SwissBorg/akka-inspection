@@ -2,28 +2,16 @@ package akka.inspection
 
 import java.util.UUID
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.inspection
 import akka.inspection.ActorInspection._
-import akka.inspection.inspectable.Inspectable
-import cats.implicits._
+import akka.inspection.extension.ActorInspector
 
-/**
- * Adds the ability to inspect the actor from outside the cluster.
- *
- * This trait is designed for actors whose state is transformed using `context.become(someReceive(state))`.
- * Use [[MutableActorInspection]] for actors whose state is transformed by mutating it.
- *
- * To do this the existent receive methods have to wrapped with `withInspectionS` or `inspectS` has to
- * be composed with the existing ones.
- * These methods rely on instance of the [[Inspectable]] typeclass. An instance can be automatically
- * derived for product type (i.e. case classes and tuples). Use [[akka.inspection.inspectable.DerivedInspectable.gen]]
- * to get the instance. If needed, it can also be manually be implemented.
- *
- */
-trait ActorInspection extends Actor {
+trait ActorInspection extends Actor with ActorLogging {
   type Group = manager.state.Group
 
-  type FragmentId = ActorInspection.FragmentId
+  type FragmentId = inspection.FragmentId
+  final def FragmentId(id: String) = inspection.FragmentId(id)
 
   /**
    * The groups of which the actor is a member.
@@ -31,23 +19,31 @@ trait ActorInspection extends Actor {
    */
   val groups: Set[Group] = Set.empty
 
-  final def bla[A](a: A, fragments: Map[FragmentId, Fragment[A]]): Receive = {
+  /**
+   * Returns a receive that handles inspection requests.
+   *
+   * @param state the name given to the current state.
+   * @param s the current state
+   * @tparam S the type of the state
+   * @return a receive that handles inspection requests.
+   */
+  final protected def handleInspectionRequests[S](state: String,
+                                                  s: S,
+                                                  fragments: Map[FragmentId, Fragment[S]]): Receive = {
     case request: FragmentIdsRequest =>
-      request.replyTo ! request.respondWith("default", fragments.keySet)
+      request.replyTo ! request.respondWith(state, fragments.keySet)
       sender() ! Ack
 
     case request: FragmentsRequest =>
-      implicit val inspectableS = Inspectable.from(fragments)
-
       val fragmentIds = request.fragmentIds.foldLeft(Set.empty[FragmentId]) {
-        case (fragmentIds, fragmentId) => fragmentIds ++ fragmentId.expand
+        case (fragmentIds, fragmentId) => fragmentIds ++ fragmentId.expand(fragments.keySet)
       }
 
       val response = request.respondWith(
-        "default",
+        state,
         fragmentIds.foldLeft(Map.empty[FragmentId, FinalizedFragment]) {
           case (fragments0, id) =>
-            fragments0 + (id -> inspectableS.fragments.getOrElse(id, Fragment.undefined).run(a))
+            fragments0 + (id -> fragments.getOrElse(id, Fragment.undefined).run(s))
         }
       )
 
@@ -123,34 +119,6 @@ private[inspection] object ActorInspection {
                                        originalRequester: ActorRef,
                                        id: Option[UUID])
       extends Event
-
-  /**
-   * Represents the identifier of a subset of an actor's state.
-   *
-   * @see [[Fragment]]
-   */
-  final case class FragmentId(id: String) extends AnyVal {
-
-    /**
-     * Returns the expanded fragment-ids.
-     *
-     * Rules:
-     *   - "*" expands to all the inspectable fragments
-     *   - "a.b.*" expands to all the child fragments of "a.b"l
-     *   - otherwise expands to itself
-     */
-    def expand[S](implicit inspectableS: Inspectable[S]): Set[FragmentId] =
-      if (id.endsWith(".*") && !id.startsWith(".*")) {
-        inspectableS.fragments.keySet.filter {
-          case FragmentId(id) => id.startsWith(this.id.init)
-        }
-      } else if (id === "*") {
-        inspectableS.fragments.keySet
-      } else {
-        inspectableS.fragments.keySet.filter(_.id === id)
-      }
-
-  }
 
   /**
    * A state fragment that has been run.

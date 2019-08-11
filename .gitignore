@@ -5,3 +5,5 @@ target/
 *.tgz
 worksheet.sc
 *.iml
+python-client/.vscode
+python-client/__pycache__

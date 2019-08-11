@@ -1,7 +1,8 @@
 package akka.inspection.manager.state
 
+import akka.actor.ActorRef
 import akka.inspection.ActorInspection
-import akka.inspection.ActorInspection.FragmentId
+import akka.inspection.FragmentId
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import akka.stream.{Materializer, QueueOfferResult}
@@ -15,8 +16,7 @@ import scala.concurrent.Future
 final private[manager] case class State(
   private val inspectableActors: InspectableActors,
   private val groups: Groups,
-  private val sourceQueues: SourceQueues[ActorInspection.Event],
-  private val requestQueue: Queue[ResponseEvent]
+  private val sourceQueues: SourceQueues[ActorInspection.Event]
 )(implicit materializer: Materializer) {
 
   /**
@@ -58,7 +58,6 @@ private[manager] object State {
     State(
       inspectableActors = InspectableActors.empty,
       groups = Groups.empty,
-      sourceQueues = SourceQueues.empty,
-      requestQueue = Queue.empty[ResponseEvent]
+      sourceQueues = SourceQueues.empty
     )
 }

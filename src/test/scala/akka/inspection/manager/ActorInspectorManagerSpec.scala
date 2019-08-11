@@ -1,7 +1,7 @@
 package akka.inspection.manager
 
 import akka.actor.{Actor, ActorSystem, Props}
-import akka.inspection.ActorInspection.FragmentId
+import akka.inspection.FragmentId
 import akka.inspection.manager.ActorInspectorManager._
 import akka.inspection.manager.state.Group
 import akka.testkit.{ImplicitSender, TestKit}

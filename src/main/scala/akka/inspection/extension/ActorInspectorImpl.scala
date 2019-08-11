@@ -1,6 +1,7 @@
-package akka.inspection
+package akka.inspection.extension
 
 import akka.actor.{ActorRef, ActorSystem, Extension}
+import akka.inspection.grpc
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import akka.inspection.manager.state.Group
@@ -10,11 +11,11 @@ import akka.util.Timeout
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef)
+private[extension] class ActorInspectorImpl(system: ActorSystem, actorInspectorManager: ActorRef)
     extends Extension
     with grpc.ActorInspectionService {
 
-  implicit val timer: Timeout       = 10 seconds // TODO BEEEHHHH
+  implicit val timer: Timeout       = 10.seconds
   implicit val ec: ExecutionContext = system.getDispatcher
 
   def subscribe(ref: ActorRef, groups: Set[Group]): Unit =

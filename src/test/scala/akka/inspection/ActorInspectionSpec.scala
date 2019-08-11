@@ -9,7 +9,9 @@ import akka.inspection.ActorInspection.{
   _
 }
 import akka.inspection.Actors.StatelessActor
-import akka.inspection.inspectable.{DerivedInspectable, Inspectable}
+import akka.inspection.extension.ActorInspector
+import akka.inspection.inspectable.Inspectable
+import akka.inspection.inspectable.derivation.DerivedInspectable
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import akka.testkit.{ImplicitSender, TestKit}
@@ -40,7 +42,10 @@ class ActorInspectionSpec
 
       implicit val inspectableFoo: Inspectable[Foo] = DerivedInspectable.gen
 
-      assert(FragmentId("*").expand == Set("i", "s", "bar.l", "bar.baz.inga").map(FragmentId))
+      assert(
+        FragmentId("*").expand(inspectableFoo.fragments.keySet) == Set("i", "s", "bar.l", "bar.baz.inga")
+          .map(FragmentId)
+      )
     }
 
     "correctly expand a fragment-id with a wildcard in a sub-position" in {
@@ -50,7 +55,9 @@ class ActorInspectionSpec
 
       implicit val inspectableFoo: Inspectable[Foo] = DerivedInspectable.gen
 
-      assert(FragmentId("bar.*").expand == Set("bar.l", "bar.baz.inga").map(FragmentId))
+      assert(
+        FragmentId("bar.*").expand(inspectableFoo.fragments.keySet) == Set("bar.l", "bar.baz.inga").map(FragmentId)
+      )
     }
 
     "correctly expand a fragment-id without a wildcard" in {
@@ -60,7 +67,7 @@ class ActorInspectionSpec
 
       implicit val inspectableFoo: Inspectable[Foo] = DerivedInspectable.gen
 
-      assert(FragmentId("bar.baz.inga").expand == Set(FragmentId("bar.baz.inga")))
+      assert(FragmentId("bar.baz.inga").expand(inspectableFoo.fragments.keySet) == Set(FragmentId("bar.baz.inga")))
     }
 
     "correctly expand a fragment-id that do not exist" in {
@@ -70,7 +77,7 @@ class ActorInspectionSpec
 
       implicit val inspectableFoo: Inspectable[Foo] = DerivedInspectable.gen
 
-      assert(FragmentId("bar").expand == Set.empty[FragmentId])
+      assert(FragmentId("bar").expand(inspectableFoo.fragments.keySet) == Set.empty[FragmentId])
     }
 
     "correctly inspect a specific fragment" in {

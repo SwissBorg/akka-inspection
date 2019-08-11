@@ -3,8 +3,8 @@ package akka.inspection.manager
 import java.util.UUID
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.inspection.ActorInspection
-import akka.inspection.ActorInspection.{FinalizedFragment, FragmentId}
+import akka.inspection.ActorInspection.FinalizedFragment
+import akka.inspection.{ActorInspection, FragmentId}
 import akka.inspection.manager.BroadcastActor._
 import akka.inspection.manager.state._
 import akka.stream.{ActorMaterializer, Materializer, QueueOfferResult}
@@ -82,8 +82,12 @@ class ActorInspectorManager extends Actor with ActorLogging {
    * Handles the subscription events.
    */
   private def subscriptionEvents(s: State): Receive = {
-    case Subscribe(ref, groups0) => context.become(receiveS(s.subscribe(ref, groups0)))
-    case Unsubscribe(ref)        => context.become(receiveS(s.unsubscribe(ref)))
+    case Subscribe(ref, groups0) =>
+      context.watchWith(ref.ref, Unsubscribe(ref))
+      context.become(receiveS(s.subscribe(ref, groups0)))
+
+    case Unsubscribe(ref) =>
+      context.become(receiveS(s.unsubscribe(ref)))
   }
 
   /**
@@ -117,7 +121,6 @@ class ActorInspectorManager extends Actor with ActorLogging {
         case Success(None) => () // no response to send
 
         case Failure(t) =>
-          println(s"aaac $t")
           log.error(t.toString)
       }
   }
@@ -128,10 +131,10 @@ class ActorInspectorManager extends Actor with ActorLogging {
    * is not available in a single node and thus will have to be broadcast to managers on the
    * other nodes.
    *
-   * @param request the request to respond to.
-   * @param s the state of the actor.
+   * @param request           the request to respond to.
+   * @param s                 the state of the actor.
    * @param originalRequester who to reply to in case of a `ActorInspection.FragmentRequest`.
-   * @param id the id of the request if available.
+   * @param id                the id of the request if available.
    * @return a potential response.
    */
   private def _responseTo(request: RequestEvent,
@@ -149,24 +152,19 @@ class ActorInspectorManager extends Actor with ActorLogging {
           case Right(m) =>
             OptionT[Future, ResponseEvent](m.map {
               case QueueOfferResult.Enqueued =>
-                println(s"enqueued")
                 None // the inspectable actor will receive the request and should respond back
+
               case QueueOfferResult.Dropped =>
-                println(s"dropped")
-
                 Some(FragmentsResponse(Either.left(UnreachableInspectableActor(actor))))
+
               case _: QueueOfferResult.Failure =>
-                println(s"failure")
-
                 Some(FragmentsResponse(Either.left(UnreachableInspectableActor(actor))))
-              case QueueOfferResult.QueueClosed =>
-                println(s"queueclosed")
 
+              case QueueOfferResult.QueueClosed =>
                 Some(FragmentsResponse(Either.left(UnreachableInspectableActor(actor))))
             })
 
           case Left(err) =>
-            println(s"aaab $err")
             OptionT.pure(FragmentsResponse(Either.left(err)))
         }
 

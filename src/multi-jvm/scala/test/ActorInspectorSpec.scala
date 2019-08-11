@@ -2,8 +2,8 @@ package test
 
 import akka.actor.Props
 import akka.cluster.Cluster
-import akka.inspection.ActorInspector
 import akka.inspection.Actors.{MutableActor, StatelessActor}
+import akka.inspection.extension.ActorInspector
 import akka.inspection.manager._
 import akka.inspection.manager.state.Group
 import akka.remote.testkit.MultiNodeSpec
@@ -18,15 +18,18 @@ import scala.concurrent.{Await, Promise}
 import scala.util.{Failure, Success, Try}
 
 class ActorInspectorSpecMultiJvmNode1 extends ActorInspectorSpec
+
 class ActorInspectorSpecMultiJvmNode2 extends ActorInspectorSpec
+
 class ActorInspectorSpecMultiJvmNode3 extends ActorInspectorSpec
 
 class ActorInspectorSpec
-    extends MultiNodeSpec(MultiNodeBasicConfig)
+  extends MultiNodeSpec(MultiNodeBasicConfig)
     with STMultiNodeSpec
     with ImplicitSender
     with Eventually
     with IntegrationPatience {
+
   import MultiNodeBasicConfig._
 
   override def initialParticipants: Int = roles.size
@@ -35,14 +38,26 @@ class ActorInspectorSpec
     "up" in {
       Cluster(system).joinSeedNodes(List(node(node1).address))
       Cluster(system).registerOnMemberUp(enterBarrier("up"))
+      enterBarrier("done")
     }
 
     "get all the inspectable actors" in {
       runOn(node1) {
-        val inspector = ActorInspector(system)
         (0 until 2).foreach(i => system.actorOf(Props[MutableActor], s"node1-mutable-$i"))
+      }
 
-        enterBarrier("deployed")
+      runOn(node2) {
+        (0 until 2).foreach(i => system.actorOf(Props[MutableActor], s"node2-mutable-$i"))
+      }
+
+      runOn(node3) {
+        (0 until 2).foreach(i => system.actorOf(Props[MutableActor], s"node3-mutable-$i"))
+      }
+
+      enterBarrier("deployed")
+
+      runOn(node1) {
+        val inspector = ActorInspector(system)
 
         eventually {
           val p: Promise[Assertion] = Promise()
@@ -69,16 +84,6 @@ class ActorInspectorSpec
 
           awaitAssert(Await.result(p.future, Duration.Inf))
         }
-      }
-
-      runOn(node2) {
-        (0 until 2).foreach(i => system.actorOf(Props[MutableActor], s"node2-mutable-$i"))
-        enterBarrier("deployed")
-      }
-
-      runOn(node3) {
-        (0 until 2).foreach(i => system.actorOf(Props[MutableActor], s"node3-mutable-$i"))
-        enterBarrier("deployed")
       }
 
       enterBarrier("finished")
@@ -136,10 +141,21 @@ class ActorInspectorSpec
 
     "get the fragment ids from an actor on the same node" in {
       runOn(node1) {
-        val inspector = ActorInspector(system)
         (2 until 4).foreach(i => system.actorOf(Props[StatelessActor], s"node1-immutable-$i"))
+      }
 
-        enterBarrier("deployed")
+      runOn(node2) {
+        (4 until 6).foreach(i => system.actorOf(Props[MutableActor], s"node2-mutable-$i"))
+      }
+
+      runOn(node3) {
+        (4 until 6).foreach(i => system.actorOf(Props[MutableActor], s"node3-mutable-$i"))
+      }
+
+      enterBarrier("deployed")
+
+      runOn(node1) {
+        val inspector = ActorInspector(system)
 
         eventually {
           val p: Promise[Assertion] = Promise()
@@ -155,10 +171,10 @@ class ActorInspectorSpec
                         .exists(
                           _.ids
                             .fold(_ => false,
-                                  r =>
-                                    r._2
-                                      .map(_.id)
-                                      .toSet == Set("yes", "no", "maybe.maybeYes", "maybe.maybeNo") && r._1 == "main")
+                              r =>
+                                r._2
+                                  .map(_.id)
+                                  .toSet == Set("yes", "no", "maybe.maybeYes", "maybe.maybeNo") && r._1 == "main")
                         )
                     )
                   )
@@ -170,25 +186,27 @@ class ActorInspectorSpec
         }
       }
 
-      runOn(node2) {
-        (4 until 6).foreach(i => system.actorOf(Props[MutableActor], s"node2-mutable-$i"))
-        enterBarrier("deployed")
-      }
-
-      runOn(node3) {
-        (4 until 6).foreach(i => system.actorOf(Props[MutableActor], s"node3-mutable-$i"))
-        enterBarrier("deployed")
-      }
-
-      enterBarrier("finished")
+      enterBarrier("done")
     }
 
     "get the fragment ids from an actor on another node" in {
       runOn(node1) {
-        val inspector = ActorInspector(system)
         (4 until 6).foreach(i => system.actorOf(Props[StatelessActor], s"node1-mutable-$i"))
+      }
 
-        enterBarrier("deployed")
+      runOn(node2) {
+        (2 until 4).foreach(i => system.actorOf(Props[StatelessActor], s"node2-immutable-$i"))
+        (6 until 8).foreach(i => system.actorOf(Props[MutableActor], s"node2-mutable-$i"))
+      }
+
+      runOn(node3) {
+        (6 until 8).foreach(i => system.actorOf(Props[MutableActor], s"node3-mutable-$i"))
+      }
+
+      enterBarrier("deployed")
+
+      runOn(node1) {
+        val inspector = ActorInspector(system)
 
         eventually {
           val p: Promise[Assertion] = Promise()
@@ -204,10 +222,10 @@ class ActorInspectorSpec
                         .exists(
                           _.ids
                             .fold(_ => false,
-                                  r =>
-                                    r._2
-                                      .map(_.id)
-                                      .toSet == Set("yes", "no", "maybe.maybeYes", "maybe.maybeNo") && r._1 == "main")
+                              r =>
+                                r._2
+                                  .map(_.id)
+                                  .toSet == Set("yes", "no", "maybe.maybeYes", "maybe.maybeNo") && r._1 == "main")
                         )
                     )
                   )
@@ -217,20 +235,10 @@ class ActorInspectorSpec
 
           awaitAssert(Await.result(p.future, Duration.Inf))
         }
+
       }
 
-      runOn(node2) {
-        (2 until 4).foreach(i => system.actorOf(Props[StatelessActor], s"node2-immutable-$i"))
-        (6 until 8).foreach(i => system.actorOf(Props[MutableActor], s"node2-mutable-$i"))
-        enterBarrier("deployed")
-      }
-
-      runOn(node3) {
-        (6 until 8).foreach(i => system.actorOf(Props[MutableActor], s"node3-mutable-$i"))
-        enterBarrier("deployed")
-      }
-
-      enterBarrier("finished")
+      enterBarrier("done")
     }
 
   }

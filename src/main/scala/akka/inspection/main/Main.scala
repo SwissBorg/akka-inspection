@@ -1,10 +1,10 @@
 package akka.inspection.main
 
 import akka.actor.{Actor, ActorSystem, Props}
-import akka.inspection.ActorInspection.FragmentId
-import akka.inspection.inspectable.{DerivedInspectable, Inspectable}
-import akka.inspection.{ActorInspection, Fragment, ImmutableActorInspection, MutableActorInspection}
+import akka.inspection.inspectable.Inspectable
+import akka.inspection.inspectable.derivation.semiauto._
 import akka.inspection.manager.state.Group
+import akka.inspection.{Fragment, ImmutableInspection, MutableInspection}
 import com.typesafe.config.{Config, ConfigFactory}
 
 object Main {
@@ -16,24 +16,29 @@ object Main {
     val c = system.actorOf(Props[StatelessActor2], "stateless-actor-2")
   }
 
-  class MutableActor extends Actor with MutableActorInspection {
-    @SuppressWarnings(Array("org.wartremover.warts.Var"))
-    private var i: Int = 0
+  class MutableActor extends Actor with MutableInspection {
+    import MutableActor._
 
-    override def receive: Receive = { case _ => i += 1 }
+    private var i: State = State(1)
 
-    override val fragments: Map[FragmentId, Fragment] = Map(
-      FragmentId("yes") -> Fragment.always(i),
-      FragmentId("no")  -> Fragment.always(i + 1)
-    )
+    override def receive: Receive = { case _ => i = State(i.i + 1) }
+
+    override val fragments: Map[FragmentId, Fragment] = fragmentsFrom(i)
 
     override val groups: Set[Group] = Set(Group("hello"), Group("world"))
   }
 
-  class StatelessActor extends Actor with ImmutableActorInspection {
+  object MutableActor {
+    final case class State(i: Int)
+    object State {
+      implicit val stateInspectable: Inspectable[State] = deriveInspectable
+    }
+  }
+
+  class StatelessActor extends Actor with ImmutableInspection {
     override def receive: Receive = mainReceive(StatelessActor.State(0))
 
-    def mainReceive(s: StatelessActor.State): Receive = withInspectionS("main")(s) {
+    def mainReceive(s: StatelessActor.State): Receive = withInspection("main")(s) {
       case _ => context.become(mainReceive(s.copy(i = s.i + 1)))
     }
 
@@ -41,8 +46,8 @@ object Main {
 
     implicit val stateInspectable: Inspectable[StatelessActor.State] = Inspectable.from(
       Map(
-        FragmentId("yes") -> Fragment.state(_.i),
-        FragmentId("no")  -> Fragment.state(_.i + 1),
+        FragmentId("yes") -> Fragment.getter(_.i),
+        FragmentId("no")  -> Fragment.getter(_.i + 1),
         FragmentId("bla") -> Fragment.always(1)
       )
     )
@@ -52,11 +57,11 @@ object Main {
     final case class State(i: Int)
   }
 
-  class StatelessActor2 extends Actor with ImmutableActorInspection {
+  class StatelessActor2 extends Actor with ImmutableInspection {
     import StatelessActor2._
 
     override def receive: Receive =
-      mainReceive(StatelessActor2.State(0, A(42, List("hello", "world"), B("foo", C(true)))))
+      otherReceive(StatelessActor2.State(0, A(42, List("hello", "world"), B("foo", C(true)))))
 
     def mainReceive(s: State): Receive = { case _ => context.become(mainReceive(s.copy(s1 = s.s1 + 1))) }
 
@@ -64,9 +69,9 @@ object Main {
 //      case _ => context.become(mainReceive(s.copy(s1 = s.s1 + 1)))
 //    }
 
-    def otherReceive(s2: State2): Receive = inspectS("otherReceive")(s2).orElse(???)
+    def otherReceive(s2: State): Receive = inspect("mainReceive")(s2) //.orElse(???)
 
-    override val groups: Set[Group] = Set(Group("hello"), Group("world"))
+    override val groups: Set[Group] = Set(Group("world"))
   }
 
   object StatelessActor2 {
@@ -76,18 +81,20 @@ object Main {
     final case class State(s1: Int, a: A)
 
     object State {
-      implicit val stateInspectable: Inspectable[State] = DerivedInspectable.gen
+      implicit val stateInspectable: Inspectable[State] = deriveInspectable
     }
 
     final case class State2(s: String)
     object State2 {
-      implicit val stat2Inspectable: Inspectable[State2] = DerivedInspectable.gen
+      implicit val stat2Inspectable: Inspectable[State2] = deriveInspectable
     }
   }
 
   val testConfig: Config = ConfigFactory
     .parseString {
       """
+        |http.server.preview.enable-http2 = on
+        |
         |akka {
         |  loglevel= "DEBUG"
         |
@@ -121,10 +128,6 @@ object Main {
         |
         |  cluster {
         |    seed-nodes = ["akka.tcp://HELLOWORLD@127.0.0.1:2551"]
-        |
-        |    # auto downing is NOT safe for production deployments.
-        |    # you may want to use it during development, read more about it in the docs.
-        |    auto-down-unreachable-after = 10s
         |  }
         |}
         |

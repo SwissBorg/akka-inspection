@@ -156,7 +156,7 @@ val stateInspectable: Inspectable[State] = new Inspectable[State] {
 #### Semi-automatic derivation
 ```scala
 import akka.inspection.inspectable.Inspectable
-import akka.inspection.inspectable.derivation.DerivedInspectable
+import akka.inspection.inspectable.derivation.semiauto._
 
 object Foo {
   case class A(l: List[Double])
@@ -165,7 +165,7 @@ object Foo {
   
   case class State(a: A, b: B)
   object State {
-    val stateInspectable: Inspectable[State] = DerivedInspectable.gen
+    val stateInspectable: Inspectable[State] = deriveInspectable
   }
 }
 ```

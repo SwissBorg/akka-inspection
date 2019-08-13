@@ -1,13 +1,7 @@
 package akka.inspection
 
 import akka.actor.{ActorSystem, Props}
-import akka.inspection.ActorInspection.{
-  FragmentIdsRequest => _,
-  FragmentIdsResponse => _,
-  FragmentsRequest => _,
-  FragmentsResponse => _,
-  _
-}
+import akka.inspection.ActorInspection.{FragmentIdsRequest => _, FragmentIdsResponse => _, FragmentsRequest => _, FragmentsResponse => _, _}
 import akka.inspection.Actors.MutableActor
 import akka.inspection.extension.ActorInspector
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
@@ -132,6 +126,7 @@ class MutableInspectionSpec
 }
 
 object MutableInspectionSpec {
+
   val testConfig: Config = ConfigFactory
     .parseString {
       """

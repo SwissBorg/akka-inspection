@@ -9,10 +9,10 @@ import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
- * Extension adding the possibility to inspect actors from outside the cluster.
- *
- * @see `ActorInspectio` and `MutableActorInspection` to add the ability to inspect to an actor.
- */
+  * Extension adding the possibility to inspect actors from outside the cluster.
+  *
+  * @see `ActorInspection` and `MutableActorInspection` to add the ability to inspect to an actor.
+  */
 object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdProvider with StrictLogging {
   override def createExtension(system: ExtendedActorSystem): ActorInspectorImpl = {
     logger.info("Starting ActorInspector...")
@@ -24,10 +24,12 @@ object ActorInspector extends ExtensionId[ActorInspectorImpl] with ExtensionIdPr
     val conf = system.settings.config
 
     val _ = if (conf.getBoolean("akka.inspection.enable-server")) {
-      val bind = new ActorInspectorServer(impl,
-                                          system,
-                                          conf.getString("akka.inspection.server.hostname"),
-                                          conf.getInt("akka.inspection.server.port")).run()
+      val bind = new ActorInspectorServer(
+        impl,
+        system,
+        conf.getString("akka.inspection.server.hostname"),
+        conf.getInt("akka.inspection.server.port")
+      ).run()
 
       CoordinatedShutdown(system).addTask(CoordinatedShutdown.PhaseServiceUnbind, "unbind-inspector-server") { () =>
         for {

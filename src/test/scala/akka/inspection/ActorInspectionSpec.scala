@@ -1,13 +1,7 @@
 package akka.inspection
 
 import akka.actor.{ActorSystem, Props}
-import akka.inspection.ActorInspection.{
-  FragmentIdsRequest => _,
-  FragmentIdsResponse => _,
-  FragmentsRequest => _,
-  FragmentsResponse => _,
-  _
-}
+import akka.inspection.ActorInspection.{FragmentIdsRequest => _, FragmentIdsResponse => _, FragmentsRequest => _, FragmentsResponse => _, _}
 import akka.inspection.Actors.StatelessActor
 import akka.inspection.extension.ActorInspector
 import akka.inspection.inspectable.Inspectable
@@ -44,7 +38,7 @@ class ActorInspectionSpec
 
       assert(
         FragmentId("*").expand(inspectableFoo.fragments.keySet) == Set("i", "s", "bar.l", "bar.baz.inga")
-          .map(FragmentId)
+            .map(FragmentId)
       )
     }
 
@@ -219,6 +213,7 @@ class ActorInspectionSpec
 }
 
 object ActorInspectionSpec {
+
   val testConfig: Config = ConfigFactory
     .parseString {
       """

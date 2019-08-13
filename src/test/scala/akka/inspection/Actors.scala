@@ -7,6 +7,7 @@ import akka.inspection.inspectable.derivation.DerivedInspectable
 import akka.inspection.manager.state.Group
 
 object Actors {
+
   class MutableActor extends Actor with MutableInspection {
     private var i: Int = 0
 
@@ -29,9 +30,11 @@ object Actors {
       case _ =>
         context.become(
           mainReceive(
-            s.copy(yes = s.yes + 1,
-                   no = s.no + 1,
-                   maybe = s.maybe.copy(maybeYes = s.maybe.maybeYes + 1, maybeNo = s.maybe.maybeNo + 1))
+            s.copy(
+              yes = s.yes + 1,
+              no = s.no + 1,
+              maybe = s.maybe.copy(maybeYes = s.maybe.maybeYes + 1, maybeNo = s.maybe.maybeNo + 1)
+            )
           )
         )
     }

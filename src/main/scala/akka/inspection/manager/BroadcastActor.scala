@@ -10,10 +10,10 @@ import cats.implicits._
 import scala.concurrent.duration._
 
 /**
- * An actor that broadcasts requests to `ActorInspectorManagers` in other nodes.
- *
- * Each `ActorInspectorManagers` has such an actor as a children.
- */
+  * An actor that broadcasts requests to `ActorInspectorManagers` in other nodes.
+  *
+  * Each `ActorInspectorManagers` has such an actor as a children.
+  */
 class BroadcastActor(manager: ActorRef) extends Actor with Stash with ActorLogging {
   import BroadcastActor._
 
@@ -27,8 +27,8 @@ class BroadcastActor(manager: ActorRef) extends Actor with Stash with ActorLoggi
   override def receive: Receive = awaitingManagers
 
   /**
-   * Waits for the set of managers.
-   */
+    * Waits for the set of managers.
+    */
   private def awaitingManagers: Receive = {
     case g @ GetSuccess(ManagersKey, _) =>
       val managers = g.get(ManagersKey).elements
@@ -45,11 +45,11 @@ class BroadcastActor(manager: ActorRef) extends Actor with Stash with ActorLoggi
   }
 
   /**
-   * Handles the incoming events.
-   *
-   * @param managers the managers available in the cluster.
-   * @param workList the responses awaiting answers from the managers.
-   */
+    * Handles the incoming events.
+    *
+    * @param managers the managers available in the cluster.
+    * @param workList the responses awaiting answers from the managers.
+    */
   private def receiveS(managers: Set[ActorRef], workList: Map[UUID, Work]): Receive = {
     case broadcastRequest @ BroadcastRequest(_, initResponse, replyTo, id) =>
       val otherManagers = managers - manager
@@ -98,9 +98,9 @@ class BroadcastActor(manager: ActorRef) extends Actor with Stash with ActorLoggi
   private def watch(managers: Set[ActorRef]): Unit = managers.foreach(context.watch)
 
   /**
-   * Removes the `stopWaitingFor` actor from the `workList` and "forgets" about
-   * work elements that, after removal, are not waiting on any manager anymore.
-   */
+    * Removes the `stopWaitingFor` actor from the `workList` and "forgets" about
+    * work elements that, after removal, are not waiting on any manager anymore.
+    */
   private def update(workList: Map[UUID, Work], stopWaitingFor: ActorRef): Map[UUID, Work] =
     workList.toList.mapFilter {
       case (id, Work(waitingFor, replyTo, response)) =>
@@ -113,16 +113,16 @@ class BroadcastActor(manager: ActorRef) extends Actor with Stash with ActorLoggi
 object BroadcastActor {
 
   /**
-   *  Wrapper around [[RequestEvent]]s to signal that the request was sent from a manager's broadcaster.
-   * @param request the wrapped request.
-   * @param replyTo the actor that originated the request.
-   * @param id the unique identifier of the request.
-   */
+    *  Wrapper around [[RequestEvent]]s to signal that the request was sent from a manager's broadcaster.
+    * @param request the wrapped request.
+    * @param replyTo the actor that originated the request.
+    * @param id the unique identifier of the request.
+    */
   final case class BroadcastRequest(request: RequestEvent, initResponse: ResponseEvent, replyTo: ActorRef, id: UUID) {
 
     /**
-     * @see [[BroadcastResponse.fromBroadcastedRequest()]]
-     */
+      * @see [[BroadcastResponse.fromBroadcastedRequest()]]
+      */
     def respondWith(response: ResponseEvent): BroadcastResponse =
       BroadcastResponse.fromBroadcastedRequest(this, response)
   }
@@ -130,36 +130,36 @@ object BroadcastActor {
   object BroadcastRequest {
 
     /**
-     * Returns a `BroadcastRequest` with a random id.
-     */
+      * Returns a `BroadcastRequest` with a random id.
+      */
     def create(request: RequestEvent, initResponse: ResponseEvent, replyTo: ActorRef): BroadcastRequest =
       BroadcastRequest(request, initResponse, replyTo, UUID.randomUUID())
   }
 
   /**
-   * Wrapper around [[ResponseEvent]] to signal that the [[response]] is an answer to a [[BroadcastRequest]].
-   *
-   * @param response the wrapped response.
-   * @param id the unique identifier of the response. Must be the same as the request it responds to!
-   */
+    * Wrapper around [[ResponseEvent]] to signal that the [[response]] is an answer to a [[BroadcastRequest]].
+    *
+    * @param response the wrapped response.
+    * @param id the unique identifier of the response. Must be the same as the request it responds to!
+    */
   final case class BroadcastResponse(response: ResponseEvent, id: UUID)
 
   object BroadcastResponse {
 
     /**
-     * Helper to build a [[BroadcastResponse]] from a [[BroadcastRequest]] that inherits its id.
-     */
+      * Helper to build a [[BroadcastResponse]] from a [[BroadcastRequest]] that inherits its id.
+      */
     def fromBroadcastedRequest(br: BroadcastRequest, response: ResponseEvent): BroadcastResponse =
       BroadcastResponse(response, br.id)
   }
 
   /**
-   * Work element tracking the replies of managers.
-   *
-   * @param waitingFor the managers whose responses have not been received.
-   * @param replyTo the actor that is waiting for the response.
-   * @param response the current response being built up.
-   */
+    * Work element tracking the replies of managers.
+    *
+    * @param waitingFor the managers whose responses have not been received.
+    * @param replyTo the actor that is waiting for the response.
+    * @param response the current response being built up.
+    */
   final case class Work(waitingFor: Set[ActorRef], replyTo: ActorRef, response: ResponseEvent)
 
   def props(manager: ActorRef): Props = Props(new BroadcastActor(manager))

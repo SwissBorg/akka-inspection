@@ -10,8 +10,8 @@ import cats.kernel.Semigroup
 import monocle.{Iso, Prism}
 
 /**
- * Events handle by the `ActorInspectorManager`
- */
+  * Events handle by the `ActorInspectorManager`
+  */
 sealed abstract class Event extends RequestEvent with ResponseEvent with SubscriptionEvent
 
 /* --- Subscribtion events --- */
@@ -60,6 +60,7 @@ object GroupRequest {
 final case class FragmentIdsRequest(actor: String) extends RequestEvent {
   val toGRPC: grpc.FragmentIdsRequest = FragmentIdsRequest.grpcIso(this)
 }
+
 object FragmentIdsRequest {
   def fromGRPC(r: grpc.FragmentIdsRequest): FragmentIdsRequest = grpcIso.get(r)
 
@@ -90,8 +91,8 @@ sealed trait ResponseEvent extends Product with Serializable
 object ResponseEvent {
 
   /**
-   * Merges the [[ResponseEvent]]s together if they match else picks the one on the right.
-   */
+    * Merges the [[ResponseEvent]]s together if they match else picks the one on the right.
+    */
   implicit val responseEventSemigroup: Semigroup[ResponseEvent] = (x: ResponseEvent, y: ResponseEvent) =>
     (x, y) match {
       case (x: InspectableActorsResponse, y: InspectableActorsResponse) =>
@@ -109,7 +110,7 @@ object ResponseEvent {
       case (_: FragmentIdsResponse, y: FragmentIdsResponse) => y
       case (_: FragmentsResponse, y: FragmentsResponse)     => y
       case _                                                => y
-  }
+    }
 }
 
 final case class InspectableActorsResponse(inspectableActors: List[String]) extends ResponseEvent {

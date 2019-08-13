@@ -95,6 +95,7 @@ class ActorInspectorManagerSpec
 }
 
 object ActorInspectorManagerSpec {
+
   class NopActor extends Actor {
     override def receive: Receive = { case _ => () }
   }

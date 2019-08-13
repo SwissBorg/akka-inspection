@@ -10,18 +10,20 @@ import shapeless.labelled.FieldType
 import shapeless.{::, Cached, HList, HNil, LabelledGeneric, Lazy, Strict, Witness}
 
 /**
- * Instance of `Inspectable` that has been derived.
- */
+  * Instance of `Inspectable` that has been derived.
+  */
 sealed abstract class DerivedInspectable[A] extends Inspectable[A]
 
 object DerivedInspectable extends LowPriorityDerivedInspectable1 {
 
   /**
-   * Derive an `Inspectable[A]` that has a fragment per leaf of `A` and whose
-   * name are their absolute path separated by dots.
-   */
-  implicit def gen[A, Repr](implicit gen: LabelledGeneric.Aux[A, Repr],
-                            inspectableRepr: Cached[Strict[DerivedInspectable[Repr]]]): DerivedInspectable[A] =
+    * Derive an `Inspectable[A]` that has a fragment per leaf of `A` and whose
+    * name are their absolute path separated by dots.
+    */
+  implicit def gen[A, Repr](
+      implicit gen: LabelledGeneric.Aux[A, Repr],
+      inspectableRepr: Cached[Strict[DerivedInspectable[Repr]]]
+  ): DerivedInspectable[A] =
     new DerivedInspectable[A] {
       override val fragments: Map[FragmentId, inspection.Fragment[A]] =
         inspectableRepr.value.value.fragments.map {
@@ -33,9 +35,9 @@ object DerivedInspectable extends LowPriorityDerivedInspectable1 {
     }
 
   implicit def hconsDerivedInspectable[K <: Symbol, H, T <: HList](
-    implicit witness: Witness.Aux[K],
-    inspectableH: Lazy[Inspectable[H]],
-    derivedInspectableT: DerivedInspectable[T]
+      implicit witness: Witness.Aux[K],
+      inspectableH: Lazy[Inspectable[H]],
+      derivedInspectableT: DerivedInspectable[T]
   ): DerivedInspectable[FieldType[K, H] :: T] =
     new DerivedInspectable[FieldType[K, H] :: T] {
       override val fragments: Map[FragmentId, inspection.Fragment[FieldType[K, H] :: T]] = {
@@ -58,17 +60,19 @@ object DerivedInspectable extends LowPriorityDerivedInspectable1 {
 
 trait LowPriorityDerivedInspectable1 extends LowPriorityDerivedInspectable0 {
   implicit def hconsDerivedInspectable1[K <: Symbol, H, Repr <: HList, T <: HList](
-    implicit witness: Witness.Aux[K],
-    gen: LabelledGeneric.Aux[H, Repr],
-    derivedInspectableRepr: Lazy[DerivedInspectable[Repr]],
-    derivedInspectableT: DerivedInspectable[T]
+      implicit witness: Witness.Aux[K],
+      gen: LabelledGeneric.Aux[H, Repr],
+      derivedInspectableRepr: Lazy[DerivedInspectable[Repr]],
+      derivedInspectableT: DerivedInspectable[T]
   ): DerivedInspectable[FieldType[K, H] :: T] =
     new DerivedInspectable[FieldType[K, H] :: T] {
       override val fragments: Map[FragmentId, inspection.Fragment[FieldType[K, H] :: T]] = {
         val fragmentsR = derivedInspectableRepr.value.fragments.map {
           case (FragmentId(id), fragment) =>
-            (FragmentId(s"${witness.value.name}.$id"),
-             fragment.contramap[FieldType[K, H] :: T](hcons => gen.to(hcons.head)))
+            (
+              FragmentId(s"${witness.value.name}.$id"),
+              fragment.contramap[FieldType[K, H] :: T](hcons => gen.to(hcons.head))
+            )
         }
 
         derivedInspectableT.fragments.mapValues(_.contramap[FieldType[K, H] :: T](_.tail)) ++ fragmentsR
@@ -78,9 +82,9 @@ trait LowPriorityDerivedInspectable1 extends LowPriorityDerivedInspectable0 {
 
 trait LowPriorityDerivedInspectable0 {
   implicit def hconsDerivedInspectable0[K <: Symbol, H, T <: HList](
-    implicit witness: Witness.Aux[K],
-    renderH: Lazy[Render[FieldType[K, H]]],
-    derivedInspectableT: DerivedInspectable[T]
+      implicit witness: Witness.Aux[K],
+      renderH: Lazy[Render[FieldType[K, H]]],
+      derivedInspectableT: DerivedInspectable[T]
   ): DerivedInspectable[FieldType[K, H] :: T] =
     new DerivedInspectable[FieldType[K, H] :: T] {
       override val fragments: Map[FragmentId, inspection.Fragment[FieldType[K, H] :: T]] =

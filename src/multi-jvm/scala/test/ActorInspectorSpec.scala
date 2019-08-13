@@ -24,7 +24,7 @@ class ActorInspectorSpecMultiJvmNode2 extends ActorInspectorSpec
 class ActorInspectorSpecMultiJvmNode3 extends ActorInspectorSpec
 
 class ActorInspectorSpec
-  extends MultiNodeSpec(MultiNodeBasicConfig)
+    extends MultiNodeSpec(MultiNodeBasicConfig)
     with STMultiNodeSpec
     with ImplicitSender
     with Eventually
@@ -170,11 +170,13 @@ class ActorInspectorSpec
                         .fromGRPC(res)
                         .exists(
                           _.ids
-                            .fold(_ => false,
+                            .fold(
+                              _ => false,
                               r =>
                                 r._2
                                   .map(_.id)
-                                  .toSet == Set("yes", "no", "maybe.maybeYes", "maybe.maybeNo") && r._1 == "main")
+                                  .toSet == Set("yes", "no", "maybe.maybeYes", "maybe.maybeNo") && r._1 == "main"
+                            )
                         )
                     )
                   )
@@ -221,11 +223,13 @@ class ActorInspectorSpec
                         .fromGRPC(res)
                         .exists(
                           _.ids
-                            .fold(_ => false,
+                            .fold(
+                              _ => false,
                               r =>
                                 r._2
                                   .map(_.id)
-                                  .toSet == Set("yes", "no", "maybe.maybeYes", "maybe.maybeNo") && r._1 == "main")
+                                  .toSet == Set("yes", "no", "maybe.maybeYes", "maybe.maybeNo") && r._1 == "main"
+                            )
                         )
                     )
                   )

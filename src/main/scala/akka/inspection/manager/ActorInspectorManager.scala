@@ -15,18 +15,18 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /**
- * An actor that manages all the inspection requests.
- *
- * The manager only handles actors within its own node. There is one instance per node started by
- * the actor inspection extension.
- */
+  * An actor that manages all the inspection requests.
+  *
+  * The manager only handles actors within its own node. There is one instance per node started by
+  * the actor inspection extension.
+  */
 class ActorInspectorManager extends Actor with ActorLogging {
   implicit private val ec: ExecutionContext = context.dispatcher
   implicit private val mat: Materializer    = ActorMaterializer()
 
   /**
-   * Broadcaster handling requests that cannot be fully answered by the manager.
-   */
+    * Broadcaster handling requests that cannot be fully answered by the manager.
+    */
   private val broadcaster = context.actorOf(BroadcastActor.props(self))
 
   override def receive: Receive = receiveS(State.empty)
@@ -38,8 +38,8 @@ class ActorInspectorManager extends Actor with ActorLogging {
       .orElse(inspectableActorsResponses)
 
   /**
-   * Handles broadcast requests sent by other manager's broadcaster.
-   */
+    * Handles broadcast requests sent by other manager's broadcaster.
+    */
   private def broadcastRequests(s: State): Receive = {
     case request: BroadcastRequest =>
       val replyTo = sender()
@@ -52,8 +52,8 @@ class ActorInspectorManager extends Actor with ActorLogging {
   }
 
   /**
-   * Handles responses received from inspectable actors.
-   */
+    * Handles responses received from inspectable actors.
+    */
   private def inspectableActorsResponses: Receive = {
     def convertFragmentIdsResponse(state: String, fragmentIds: Set[FragmentId]): FragmentIdsResponse =
       FragmentIdsResponse(Either.right((state, fragmentIds.toList)))
@@ -79,8 +79,8 @@ class ActorInspectorManager extends Actor with ActorLogging {
   }
 
   /**
-   * Handles the subscription events.
-   */
+    * Handles the subscription events.
+    */
   private def subscriptionEvents(s: State): Receive = {
     case Subscribe(ref, groups0) =>
       context.watchWith(ref.ref, Unsubscribe(ref))
@@ -91,8 +91,8 @@ class ActorInspectorManager extends Actor with ActorLogging {
   }
 
   /**
-   * Handles the inspection specific requests.
-   */
+    * Handles the inspection specific requests.
+    */
   private def infoRequests(s: State): Receive = {
     case r: RequestEvent =>
       val replyTo = sender() // bind so we do not capture it in the future's callback
@@ -126,21 +126,23 @@ class ActorInspectorManager extends Actor with ActorLogging {
   }
 
   /**
-   * Responds to the request with all the information available. For some types of requests
-   * this is sufficient to fully answer the request. However, in some cases the information
-   * is not available in a single node and thus will have to be broadcast to managers on the
-   * other nodes.
-   *
-   * @param request           the request to respond to.
-   * @param s                 the state of the actor.
-   * @param originalRequester who to reply to in case of a `ActorInspection.FragmentRequest`.
-   * @param id                the id of the request if available.
-   * @return a potential response.
-   */
-  private def _responseTo(request: RequestEvent,
-                          s: State,
-                          originalRequester: ActorRef,
-                          id: Option[UUID]): OptionT[Future, ResponseEvent] =
+    * Responds to the request with all the information available. For some types of requests
+    * this is sufficient to fully answer the request. However, in some cases the information
+    * is not available in a single node and thus will have to be broadcast to managers on the
+    * other nodes.
+    *
+    * @param request           the request to respond to.
+    * @param s                 the state of the actor.
+    * @param originalRequester who to reply to in case of a `ActorInspection.FragmentRequest`.
+    * @param id                the id of the request if available.
+    * @return a potential response.
+    */
+  private def _responseTo(
+      request: RequestEvent,
+      s: State,
+      originalRequester: ActorRef,
+      id: Option[UUID]
+  ): OptionT[Future, ResponseEvent] =
     request match {
       case InspectableActorsRequest =>
         OptionT.pure(InspectableActorsResponse(s.inspectableActorRefs.toList.map(_.toId)))
@@ -186,9 +188,11 @@ class ActorInspectorManager extends Actor with ActorLogging {
         }
     }
 
-  private def responseToBroadcast(request: BroadcastRequest,
-                                  s: State,
-                                  originalRequester: ActorRef): OptionT[Future, ResponseEvent] =
+  private def responseToBroadcast(
+      request: BroadcastRequest,
+      s: State,
+      originalRequester: ActorRef
+  ): OptionT[Future, ResponseEvent] =
     _responseTo(request.request, s, originalRequester, Some(request.id))
 
   private def responseTo(request: RequestEvent, s: State, originalRequester: ActorRef): OptionT[Future, ResponseEvent] =
@@ -198,8 +202,8 @@ class ActorInspectorManager extends Actor with ActorLogging {
 object ActorInspectorManager {
 
   /**
-   * An [[ActorRef]] that can be inspected.
-   */
+    * An [[ActorRef]] that can be inspected.
+    */
   final case class InspectableActorRef private[inspection] (ref: ActorRef) {
     val toId: String = s"${ref.path}"
   }

@@ -8,6 +8,7 @@ import akka.inspection.{Fragment, ImmutableInspection, MutableInspection}
 import com.typesafe.config.{Config, ConfigFactory}
 
 object Main {
+
   def main(args: Array[String]): Unit = {
     val system = ActorSystem("HELLOWORLD", testConfig)
 
@@ -30,6 +31,7 @@ object Main {
 
   object MutableActor {
     final case class State(i: Int)
+
     object State {
       implicit val stateInspectable: Inspectable[State] = deriveInspectable
     }
@@ -85,6 +87,7 @@ object Main {
     }
 
     final case class State2(s: String)
+
     object State2 {
       implicit val stat2Inspectable: Inspectable[State2] = deriveInspectable
     }

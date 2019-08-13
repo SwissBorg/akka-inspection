@@ -4,20 +4,20 @@ import akka.inspection
 import akka.inspection.{Fragment, FragmentId}
 
 /**
- * Typeclass for `A`s that can be inspected.
- */
+  * Typeclass for `A`s that can be inspected.
+  */
 trait Inspectable[A] {
 
   /**
-   * @see [[akka.inspection.Fragment]]
-   */
+    * @see [[akka.inspection.Fragment]]
+    */
   type Fragment = inspection.Fragment[A]
   val Fragment = new inspection.Fragment.FragmentPartiallyApplied[A]()
 
   /**
-   * A collection of getters on the type `A` that can be accessed
-   * from their id.
-   */
+    * A collection of getters on the type `A` that can be accessed
+    * from their id.
+    */
   val fragments: Map[FragmentId, inspection.Fragment[A]]
 }
 

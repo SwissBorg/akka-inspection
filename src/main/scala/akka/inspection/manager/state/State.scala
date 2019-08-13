@@ -1,27 +1,24 @@
 package akka.inspection.manager.state
 
-import akka.actor.ActorRef
 import akka.inspection.ActorInspection
-import akka.inspection.FragmentId
 import akka.inspection.manager.ActorInspectorManager.InspectableActorRef
 import akka.inspection.manager._
 import akka.stream.{Materializer, QueueOfferResult}
 
-import scala.collection.immutable.Queue
 import scala.concurrent.Future
 
 /**
- * The state of the `ActorInspectorManager`.
- */
+  * The state of the `ActorInspectorManager`.
+  */
 final private[manager] case class State(
-  private val inspectableActors: InspectableActors,
-  private val groups: Groups,
-  private val sourceQueues: SourceQueues[ActorInspection.Event]
+    private val inspectableActors: InspectableActors,
+    private val groups: Groups,
+    private val sourceQueues: SourceQueues[ActorInspection.Event]
 )(implicit materializer: Materializer) {
 
   /**
-   * Add `ref` to the inspectable actors.
-   */
+    * Add `ref` to the inspectable actors.
+    */
   def subscribe(ref: InspectableActorRef, groups: Set[Group]): State =
     copy(
       inspectableActors = inspectableActors.add(ref),
@@ -30,8 +27,8 @@ final private[manager] case class State(
     )
 
   /**
-   * Remove `ref` from the inspectable actors.
-   */
+    * Remove `ref` from the inspectable actors.
+    */
   def unsubscribe(ref: InspectableActorRef): State =
     copy(
       inspectableActors = inspectableActors.remove(ref),
@@ -54,6 +51,7 @@ final private[manager] case class State(
 }
 
 private[manager] object State {
+
   def empty(implicit materializer: Materializer): State =
     State(
       inspectableActors = InspectableActors.empty,

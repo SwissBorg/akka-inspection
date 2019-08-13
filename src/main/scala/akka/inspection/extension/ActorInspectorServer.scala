@@ -11,18 +11,19 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /**
- * Server exposing the actor inspection service to the outside of the cluster.
- *
- * @param inspectionService an instance of the service.
- * @param system the actor system.
- * @param interface the interface on which to listen.
- * @param port the port on which to listen.
- */
-private[extension] class ActorInspectorServer(inspectionService: ActorInspectorImpl,
-                                              system: ActorSystem,
-                                              interface: String,
-                                              port: Int)
-    extends StrictLogging {
+  * Server exposing the actor inspection service to the outside of the cluster.
+  *
+  * @param inspectionService an instance of the service.
+  * @param system the actor system.
+  * @param interface the interface on which to listen.
+  * @param port the port on which to listen.
+  */
+private[extension] class ActorInspectorServer(
+    inspectionService: ActorInspectorImpl,
+    system: ActorSystem,
+    interface: String,
+    port: Int
+) extends StrictLogging {
   implicit val sys: ActorSystem     = system
   implicit val mat: Materializer    = ActorMaterializer()
   implicit val ec: ExecutionContext = sys.dispatcher

@@ -1,8 +1,8 @@
 package akka.inspection
 
 /**
- * Typeclass for rendering elements of type `T`.
- */
+  * Typeclass for rendering elements of type `T`.
+  */
 trait Render[T] {
   def render(t: T): String
 }

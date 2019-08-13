@@ -4,77 +4,77 @@ import akka.inspection.ActorInspection.{FinalizedFragment, RenderedFragment, Und
 import cats.Contravariant
 
 /**
- * Describes how to extract a fragment from the state [[S]].
- *
- * @tparam S the type of state.
- */
+  * Describes how to extract a fragment from the state [[S]].
+  *
+  * @tparam S the type of state.
+  */
 sealed abstract class Fragment[-S] extends Product with Serializable {
 
   /**
-   * Runs the [[Fragment]] to build a [[FinalizedFragment]].
-   */
+    * Runs the [[Fragment]] to build a [[FinalizedFragment]].
+    */
   def run(s: S): FinalizedFragment
 }
 
 object Fragment {
 
   /**
-   * Describes a fragment whose value doesn't change.
-   */
+    * Describes a fragment whose value doesn't change.
+    */
   final case class Const(fragment: String) extends Fragment[Any] {
     override def run(s: Any): FinalizedFragment = RenderedFragment(fragment)
   }
 
   /**
-   * Describes a fragment whose value is evaluated at each access.
-   */
+    * Describes a fragment whose value is evaluated at each access.
+    */
   final case class Always(fragment: () => String) extends Fragment[Any] {
     override def run(s: Any): FinalizedFragment = RenderedFragment(fragment())
   }
 
   /**
-   * Describes a fragment dependent on [[S]].
-   */
+    * Describes a fragment dependent on [[S]].
+    */
   final case class Getter[S](get: S => String) extends Fragment[S] {
     def run(s: S): FinalizedFragment = RenderedFragment(get(s))
   }
 
   /**
-   * Describes an undefined fragment.
-   */
+    * Describes an undefined fragment.
+    */
   final case class Undefined() extends Fragment[Any] {
     override def run(s: Any): FinalizedFragment = UndefinedFragment
   }
 
   /**
-   * Build a [[Fragment]] always containing `t`.
-   */
+    * Build a [[Fragment]] always containing `t`.
+    */
   def apply[T: Render](t: T): Fragment[Any] = Const(Render[T].render(t))
 
   /**
-   * Build a [[Fragment]] that evaluates `t` at each access.
-   */
+    * Build a [[Fragment]] that evaluates `t` at each access.
+    */
   def always[T: Render](t: => T): Fragment[Any] = Always(() => Render[T].render(t))
 
   /**
-   * Build a [[Fragment]] from the state [[S]].
-   */
+    * Build a [[Fragment]] from the state [[S]].
+    */
   def getter[S, T: Render](get: S => T): Fragment[S] = Getter(get.andThen(Render[T].render))
 
   /**
-   * Build a [[Fragment]] that hides sensitive data.
-   */
+    * Build a [[Fragment]] that hides sensitive data.
+    */
   def sensitive: Fragment[Any] = Const("[SENSITIVE]")
 
   /**
-   * [[Fragment]] fallback.
-   */
+    * [[Fragment]] fallback.
+    */
   def undefined: Fragment[Any] = Undefined()
 
   /**
-   * Helper to provide [[S]] so that the user that extends [[ActorInspection]]
-   * does not have to annotate the state's type when building state fragments.
-   */
+    * Helper to provide [[S]] so that the user that extends [[ActorInspection]]
+    * does not have to annotate the state's type when building state fragments.
+    */
   final class FragmentPartiallyApplied[S](val dummy: Boolean = true) extends AnyVal {
     def apply[T: Render](t: T): Fragment[Any]       = Fragment(t)
     def always[T: Render](t: => T): Fragment[Any]   = Fragment.always(t)

@@ -12,8 +12,8 @@ import scalaz.Equal
 import org.scalacheck.ScalacheckShapeless._
 
 /**
- * Arbitrary instances for akka.inspection
- */
+  * Arbitrary instances for akka.inspection
+  */
 object arbitrary {
   implicit val arbGRPCFragmentIdsRequest: Arbitrary[grpc.FragmentIdsRequest] = Arbitrary(
     Gen.alphaNumStr.map(grpc.FragmentIdsRequest(_))
@@ -54,9 +54,11 @@ object arbitrary {
   }
 
   implicit val arbGRPCFragmentIdsResponse: Arbitrary[grpc.FragmentIdsResponse] = Arbitrary {
-    oneOf(arbGRPCFragmentIdsResponseFragmentIds.arbitrary,
-          arbFragmentIdsResponseError.arbitrary,
-          arbGRPCFragmentIdsReponseEmpty.arbitrary).map(grpc.FragmentIdsResponse(_))
+    oneOf(
+      arbGRPCFragmentIdsResponseFragmentIds.arbitrary,
+      arbFragmentIdsResponseError.arbitrary,
+      arbGRPCFragmentIdsReponseEmpty.arbitrary
+    ).map(grpc.FragmentIdsResponse(_))
   }
 
   implicit val arbActorNotInspectable: Arbitrary[ActorNotInspectable] = Arbitrary(

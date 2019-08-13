@@ -26,9 +26,9 @@ val fragments: Map[FragmentId, Fragment]
 
 ```scala
 import akka.actor.Actor
-import akka.inspection.MutableInspection
-import akka.inspection.inspectable.Inspectable
-import akka.inspection.inspectable.derivation.DerivedInspectable
+import com.swissborg.akkainspection.MutableInspection
+import com.swissborg.akkainspection.inspectable.Inspectable
+import com.swissborg.akkainspection.inspectable.derivation.semiauto._
 
 class MyMutableActor extends Actor with MutableInspection {
   import MyMutableActor._
@@ -43,7 +43,7 @@ class MyMutableActor extends Actor with MutableInspection {
 object MyMutableActor {
   case class State(/*...*/)
   object State {
-    implicit val stateInspectable: Inspectable[State] = DerivedInspectable.gen
+    implicit val stateInspectable: Inspectable[State] = deriveInspectable
   }
 }
 ```
@@ -61,31 +61,6 @@ state. They do the same thing and choosing one over another is a matter of taste
 an existing `Receive`. 
 
 ```scala
-import akka.actor.Actor
-import akka.inspection.ImmutableInspection
-import akka.inspection.inspectable.Inspectable
-import akka.inspection.inspectable.derivation.DerivedInspectable
-
-class MyImmutableActor extends Actor with ImmutableInspection {
-  import MyImmutableActor._
-
-  override def receive: Receive = ???
-  
-  def statefulReceive(s: State): Receive = withInspection("a-name")(s) {
-   /* original receive implementation */
-   case _ => ()
-  }
-  
-  def statefulReceive2(s: State): Receive = 
-    inspect("other-name")(s) orElse ??? // receive
-}
-
-object MyImmutableActor {
-  case class State(/*...*/)
-  object State {
-    implicit val stateInspectable: Inspectable[State] = DerivedInspectable.gen
-  }
-}
 ```
 
 The argument `state` in `inspect` or `withInspection` can be used to give 
@@ -155,8 +130,8 @@ val stateInspectable: Inspectable[State] = new Inspectable[State] {
 
 #### Semi-automatic derivation
 ```scala
-import akka.inspection.inspectable.Inspectable
-import akka.inspection.inspectable.derivation.semiauto._
+import com.swissborg.akkainspection.inspectable.Inspectable
+import com.swissborg.akkainspection.inspectable.derivation.semiauto._
 
 object Foo {
   case class A(l: List[Double])
@@ -171,5 +146,5 @@ object Foo {
 ```
 
 #### Automatic derivation
-Add the import `akka.inspection.inspectable.derivation.auto._` to derive
+Add the import `com.swissborg.swissborg.akkainspection.inspectable.derivation.auto._` to derive
 an `Inspectable` without any boilerplate.
